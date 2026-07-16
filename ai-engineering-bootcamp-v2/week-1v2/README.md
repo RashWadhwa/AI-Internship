@@ -47,8 +47,6 @@ Check that the API is running without spending tokens:
 ```bash
 curl http://127.0.0.1:8000/health
 ```
-![](images\healthCheck.png)
-
 You can also open the generated API docs:
 
 ```text
@@ -61,9 +59,6 @@ http://127.0.0.1:8000/docs
 source .venv/bin/activate
 streamlit run demo_page.py
 ```
-![](images/output1.png)
-
-![](images/output2.png)
 
 Open:
 

@@ -1,11 +1,11 @@
 # AI-Internship-Bootcamp
 
 ##  Week-1
-Ran API health check
+**Ran API health check**
 
 ![healthCheck](ai-engineering-bootcamp-v2/week-1v2/images/healthCheck.png)
 
-Tested the /ask demon in Streamlit
+**Tested the /ask demo in Streamlit**
 
 ![output1](ai-engineering-bootcamp-v2/week-1v2/images/output1.png)
 
