@@ -21,11 +21,11 @@ Hands-on course materials for building production-style LLM APIs with **FastAPI*
 
 ## Quick start
 
-```bash
+```
 cd week-1v2
 cp .env.example .env          # add your OPENAI_API_KEY
 python -m venv .venv
-source .venv/bin/activate
+.venv/bin/activate.ps1
 pip install -r requirements.txt
 ```
 
