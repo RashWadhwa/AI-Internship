@@ -42,6 +42,29 @@ how to run it, and any important artifacts or next steps. Use this checklist as 
 Keeping a consistent weekly `README.md` makes the repository easier to review and
 simplifies the final deployment and documentation pass.
 
+## Deployment on Render.com
+
+I deployed the Week 1 demo as two separate Render web services:
+
+- API service (FastAPI)
+	- **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2`
+	- **Build Command:** `python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
+	- **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+	- **Notes:** I added a nested `Procfile` in the week folder so Render can detect the app when the Root Directory is set.
+
+- Streamlit demo (UI)
+	- **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2` (create a separate Render service pointing to the same folder)
+	- **Build Command:** same as API (install requirements)
+	- **Start Command:** `streamlit run demo_page.py --server.port $PORT --server.address 0.0.0.0`
+	- **Notes:** I added `start_streamlit.sh` to the folder; you can use it as the Start Command (`sh start_streamlit.sh`) or paste the command above.
+
+Common tips:
+
+- Use `0.0.0.0` and `$PORT` (bash-style) in Render start commands. Do not use PowerShell `$env:PORT` in Render settings.
+- If a dependency fails to build, upgrade pip/setuptools/wheel in the Build Command (see above).
+- The repo includes `runtime.txt` to pin Python to a compatible version on Render.
+
+
 
 
 

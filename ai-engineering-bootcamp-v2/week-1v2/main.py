@@ -10,6 +10,7 @@ from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
 
@@ -64,6 +65,12 @@ class AskResponse(BaseModel):
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    """Redirect the site root to the interactive docs for convenience."""
+    return RedirectResponse(url="/docs")
 
 
 def get_client() -> OpenAI:
