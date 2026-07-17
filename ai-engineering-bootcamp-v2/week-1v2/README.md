@@ -4,41 +4,42 @@ This folder is the simplified class version of the Week 1 AI Engineering bootcam
 Students run one final API and one small Streamlit page. The `stages/` files are optional
 teaching references that show how the endpoint grows step by step.
 
-## What Students Will Build
+## What I Built
 
-A typed FastAPI endpoint that accepts a question and returns:
+I implemented a typed FastAPI endpoint that accepts a question and returns:
 
 - `answer`: a structured answer object
 - `tokens_used`: token usage returned by the model provider
 - `model`: the model used for the request
 - `latency_ms`: how long the request took
 - `cost_usd`: an estimated request cost
-- `attempts`: validation and retry details for the guardrail demo
+- `attempts`: validation and retry details used in the guardrail demo
 
-The main idea: an LLM call becomes more useful in software when it has a predictable
-request shape, a predictable response shape, and observable runtime metadata.
+The main idea I demonstrated: an LLM call becomes more useful in software when it
+has a predictable request shape, a predictable response shape, and observable
+runtime metadata.
 
 ## Quick Start
 
-Run these commands from this `week-1v2` folder:
+Run these commands from this `week-1v2` folder (PowerShell):
 
-```bash
+```powershell
 python -m venv .venv
-source .venv/bin/activate
+. .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-test -f .env || cp .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 Open `.env` and add your key:
 
-```bash
+```powershell
 OPENAI_API_KEY=sk-...
 ```
 
 ## Terminal 1: Start the API
 
-```bash
-source .venv/bin/activate
+```powershell
+. .\.venv\Scripts\Activate.ps1
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
@@ -55,8 +56,8 @@ http://127.0.0.1:8000/docs
 
 ## Terminal 2: Start the Demo Page
 
-```bash
-source .venv/bin/activate
+```powershell
+. .\.venv\Scripts\Activate.ps1
 streamlit run demo_page.py
 ```
 
@@ -119,8 +120,8 @@ uvicorn stages.stage_3_guardrails_and_observability:app --host 127.0.0.1 --port 
 
 This starts the final API, checks `/health` and `/docs`, and does not call OpenAI:
 
-```bash
-source .venv/bin/activate
+```powershell
+. .\.venv\Scripts\Activate.ps1
 python smoke_test.py
 ```
 

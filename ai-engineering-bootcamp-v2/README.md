@@ -1,6 +1,6 @@
 # AI Engineering Bootcamp v2
 
-Hands-on course materials for building production-style LLM APIs with **FastAPI**, **OpenAI**, **Pydantic**, and **Streamlit**.
+Hands-on experience for building production-style LLM APIs with **FastAPI**, **OpenAI**, **Pydantic**, and **Streamlit**.
 
 ## Weeks
 
