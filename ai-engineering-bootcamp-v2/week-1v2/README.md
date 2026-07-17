@@ -79,6 +79,27 @@ that response with Pydantic, records the failure, and retries with structured ou
 This is a small classroom-friendly example of a production habit: do not trust free-form
 LLM output at the boundary of your application.
 
+## Deploying to Render.com
+
+I deploy the demo as two Render services: the API and the Streamlit UI. Recommended settings:
+
+- Service 1 — API
+  - **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2`
+  - **Build Command:** `python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
+  - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+- Service 2 — Streamlit UI
+  - **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2` (create a separate web service)
+  - **Build Command:** same as API
+  - **Start Command:** `streamlit run demo_page.py --server.port $PORT --server.address 0.0.0.0`
+  - Or use the included helper script: `sh start_streamlit.sh`
+
+Notes:
+
+- If you prefer Render to detect a Procfile, the API `Procfile` is included in the week folder. For the Streamlit service use the Start Command above instead of a Procfile.
+- Use the `health` (`/health`) and docs (`/docs`) endpoints to verify the API is live after deployment.
+
+
 ## Test With Curl
 
 Normal request:
