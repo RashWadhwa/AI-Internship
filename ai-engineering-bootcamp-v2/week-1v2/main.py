@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
@@ -17,6 +17,15 @@ from pydantic import BaseModel, Field, ValidationError
 THIS_DIR = Path(__file__).resolve().parent
 load_dotenv(THIS_DIR / ".env")
 load_dotenv(THIS_DIR.parent / ".env")
+load_dotenv(THIS_DIR.parent.parent / ".env")
+
+from vectorstore import (  # noqa: E402
+    EMBEDDING_MODEL,
+    chunk_text,
+    pinecone_health,
+    query_similar,
+    upsert_documents,
+)
 
 app = FastAPI(title="Week 1 v2 /ask Demo")
 _client: OpenAI | None = None
@@ -28,6 +37,18 @@ MODEL_PRICES_PER_1K: dict[str, tuple[float, float]] = {
     "gpt-4o-mini": (0.00015, 0.0006),
     "o3-mini": (0.0011, 0.0044),
 }
+
+RAG_TOP_K = 5
+
+GROUNDING_PROMPT_TEMPLATE = """Answer using ONLY the context below.
+If the context does not contain the answer, say:
+"I don't have enough information to answer that."
+Cite the document_id of each chunk you used.
+
+Context:
+{context}
+
+Question: {question}"""
 
 
 class Answer(BaseModel):
@@ -60,11 +81,76 @@ class AskResponse(BaseModel):
     latency_ms: int
     cost_usd: float
     attempts: list[AttemptResult]
+    retrieved_chunk_ids: list[str]
+
+
+class IngestRequest(BaseModel):
+    document_id: str = Field(min_length=1)
+    text: str
+    source: str | None = None
+
+
+class IngestResponse(BaseModel):
+    document_id: str
+    chunks_indexed: int
+    status: str
+
+
+class RetrievedChunk(BaseModel):
+    chunk_id: str
+    score: float
+    document_id: str | None = None
+    chunk_index: int | None = None
+    source: str | None = None
+    text: str | None = None
+
+
+class DebugRetrieveResponse(BaseModel):
+    query: str
+    embedding_model: str
+    results: list[RetrievedChunk]
+
+
+def to_retrieved_chunks(matches: list[dict]) -> list[RetrievedChunk]:
+    return [
+        RetrievedChunk(
+            chunk_id=match["id"],
+            score=match["score"],
+            document_id=(match["metadata"] or {}).get("document_id"),
+            chunk_index=(match["metadata"] or {}).get("chunk_index"),
+            source=(match["metadata"] or {}).get("source"),
+            text=(match["metadata"] or {}).get("text"),
+        )
+        for match in matches
+    ]
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/debug/pinecone")
+def debug_pinecone() -> dict:
+    try:
+        return pinecone_health()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Pinecone unreachable: {exc}")
+
+
+# curl -s "http://127.0.0.1:8000/debug/retrieve?q=What+does+the+handbook+say+about+PTO"
+@app.get("/debug/retrieve")
+def debug_retrieve(
+    q: str = Query(min_length=1), top_k: int = Query(5, ge=1, le=20)
+) -> DebugRetrieveResponse:
+    """Embeddings + vector search only — no LLM call. Use to sanity-check retrieval."""
+    try:
+        matches = query_similar(q, top_k=top_k)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Vector store query failed: {exc}")
+
+    results = to_retrieved_chunks(matches)
+    return DebugRetrieveResponse(query=q, embedding_model=EMBEDDING_MODEL, results=results)
 
 
 @app.get("/", include_in_schema=False)
@@ -94,6 +180,20 @@ def usage_counts(completion) -> tuple[int, int, int]:
     if usage is None:
         return 0, 0, 0
     return usage.total_tokens, usage.prompt_tokens, usage.completion_tokens
+
+
+def format_retrieved_context(chunks: list[RetrievedChunk]) -> str:
+    if not chunks:
+        return "(no relevant context was retrieved)"
+    return "\n\n".join(
+        f"[{chunk.document_id}] (chunk {chunk.chunk_index}): {chunk.text}" for chunk in chunks
+    )
+
+
+def build_grounding_prompt(question: str, chunks: list[RetrievedChunk]) -> str:
+    return GROUNDING_PROMPT_TEMPLATE.format(
+        context=format_retrieved_context(chunks), question=question
+    )
 
 
 def call_structured_model(question: str, model: ModelName) -> tuple[Answer, int, int, int]:
@@ -133,21 +233,59 @@ def call_malformed_json_once(question: str, model: ModelName) -> tuple[str, int,
     return raw, total_tokens, prompt_tokens, completion_tokens
 
 
+# curl -s -X POST http://127.0.0.1:8000/ingest \
+#   -H "Content-Type: application/json" \
+#   -d '{"document_id": "handbook-1", "text": "Long document text...", "source": "handbook.pdf"}'
+@app.post("/ingest")
+def ingest(body: IngestRequest) -> IngestResponse:
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text must not be empty")
+
+    chunks = chunk_text(text)
+    if not chunks:
+        raise HTTPException(status_code=400, detail="text produced no chunks after splitting")
+
+    ids = [f"{body.document_id}-{i}" for i in range(len(chunks))]
+    metadatas = [
+        {"document_id": body.document_id, "chunk_index": i, "source": body.source or ""}
+        for i in range(len(chunks))
+    ]
+
+    try:
+        chunks_indexed = upsert_documents(ids, chunks, metadatas)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Vector store upsert failed: {exc}")
+
+    return IngestResponse(
+        document_id=body.document_id, chunks_indexed=chunks_indexed, status="indexed"
+    )
+
+
 @app.post("/ask")
 def ask(body: AskRequest) -> AskResponse:
     model = body.model or DEFAULT_MODEL
+    start = time.perf_counter()
+
+    try:
+        matches = query_similar(body.question, top_k=RAG_TOP_K)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Retrieval failed: {exc}")
+
+    retrieved_chunks = to_retrieved_chunks(matches)
+    prompt = build_grounding_prompt(body.question, retrieved_chunks)
+
     last_error: str | None = None
     attempts: list[AttemptResult] = []
     total_tokens_used = 0
     total_prompt_tokens = 0
     total_completion_tokens = 0
-    start = time.perf_counter()
 
     for attempt in range(2):
         try:
             if body.force_bad and attempt == 0:
                 raw, tokens_used, prompt_tokens, completion_tokens = call_malformed_json_once(
-                    body.question, model
+                    prompt, model
                 )
                 total_tokens_used += tokens_used
                 total_prompt_tokens += prompt_tokens
@@ -180,7 +318,7 @@ def ask(body: AskRequest) -> AskResponse:
                 )
             else:
                 answer, tokens_used, prompt_tokens, completion_tokens = call_structured_model(
-                    body.question, model
+                    prompt, model
                 )
                 total_tokens_used += tokens_used
                 total_prompt_tokens += prompt_tokens
@@ -205,6 +343,7 @@ def ask(body: AskRequest) -> AskResponse:
                 latency_ms=latency_ms,
                 cost_usd=round(cost_usd, 6),
                 attempts=attempts,
+                retrieved_chunk_ids=[chunk.chunk_id for chunk in retrieved_chunks],
             )
         except (ValidationError, ValueError) as exc:
             last_error = str(exc)

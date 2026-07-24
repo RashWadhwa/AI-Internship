@@ -65,6 +65,7 @@ Common tips:
 - The repo includes `runtime.txt` to pin Python to a compatible version on Render.
 
 
+![alt text](retrieval.png)
 
 
 

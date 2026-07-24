@@ -5,8 +5,21 @@ services:
     plan: free
     branch: main
     root: ai-engineering-bootcamp-v2/week-1v2
-    buildCommand: python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    buildCommand: 'python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt'
+    startCommand: 'uvicorn main:app --host 0.0.0.0 --port $PORT'
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        value: ai-internship-rag
+      - key: PINECONE_CLOUD
+        value: aws
+      - key: PINECONE_REGION
+        value: us-east-1
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
 
   - type: web
     name: ai-engineering-streamlit
@@ -14,5 +27,5 @@ services:
     plan: free
     branch: main
     root: ai-engineering-bootcamp-v2/week-1v2
-    buildCommand: python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
-    startCommand: sh start_streamlit.sh
+    buildCommand: 'python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt'
+    startCommand: 'sh start_streamlit.sh'

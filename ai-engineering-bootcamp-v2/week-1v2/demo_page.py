@@ -99,13 +99,12 @@ base_url = st.sidebar.text_input("API base URL", "http://127.0.0.1:8000")
 st.sidebar.markdown("### Start the API")
 st.sidebar.code(
     f"cd {WORKDIR_CMD}\n"
-    "source .venv/bin/activate\n"
     "uvicorn main:app --host 127.0.0.1 --port 8000 --reload",
     language="bash",
 )
 st.sidebar.markdown("### Start this page")
 st.sidebar.code(
-    f"cd {WORKDIR_CMD}\nsource .venv/bin/activate\nstreamlit run demo_page.py",
+    f"cd {WORKDIR_CMD}\nstreamlit run demo_page.py",
     language="bash",
 )
 
