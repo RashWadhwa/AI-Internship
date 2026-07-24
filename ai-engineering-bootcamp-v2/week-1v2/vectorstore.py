@@ -26,14 +26,14 @@ _openai_client: OpenAI | None = None
 def get_pinecone_client() -> Pinecone:
     global _pinecone_client
     if _pinecone_client is None:
-        _pinecone_client = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+        _pinecone_client = Pinecone(api_key=os.environ["PINECONE_API_KEY"].strip())
     return _pinecone_client
 
 
 def get_openai_client() -> OpenAI:
     global _openai_client
     if _openai_client is None:
-        _openai_client = OpenAI()
+        _openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"].strip())
     return _openai_client
 
 

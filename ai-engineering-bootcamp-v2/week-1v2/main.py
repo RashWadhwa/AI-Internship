@@ -4,6 +4,8 @@ Run:
   uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 """
 
+import logging
+import os
 import time
 from pathlib import Path
 from typing import Literal
@@ -26,6 +28,8 @@ from vectorstore import (  # noqa: E402
     query_similar,
     upsert_documents,
 )
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Week 1 v2 /ask Demo")
 _client: OpenAI | None = None
@@ -134,8 +138,9 @@ def health() -> dict[str, str]:
 def debug_pinecone() -> dict:
     try:
         return pinecone_health()
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Pinecone unreachable: {exc}")
+    except Exception:
+        logger.exception("Pinecone health check failed")
+        raise HTTPException(status_code=503, detail="Pinecone unreachable")
 
 
 # curl -s "http://127.0.0.1:8000/debug/retrieve?q=What+does+the+handbook+say+about+PTO"
@@ -146,8 +151,9 @@ def debug_retrieve(
     """Embeddings + vector search only — no LLM call. Use to sanity-check retrieval."""
     try:
         matches = query_similar(q, top_k=top_k)
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Vector store query failed: {exc}")
+    except Exception:
+        logger.exception("Vector store query failed")
+        raise HTTPException(status_code=503, detail="Vector store query failed")
 
     results = to_retrieved_chunks(matches)
     return DebugRetrieveResponse(query=q, embedding_model=EMBEDDING_MODEL, results=results)
@@ -162,7 +168,7 @@ def root_redirect():
 def get_client() -> OpenAI:
     global _client
     if _client is None:
-        _client = OpenAI()
+        _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"].strip())
     return _client
 
 
@@ -254,8 +260,9 @@ def ingest(body: IngestRequest) -> IngestResponse:
 
     try:
         chunks_indexed = upsert_documents(ids, chunks, metadatas)
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Vector store upsert failed: {exc}")
+    except Exception:
+        logger.exception("Vector store upsert failed")
+        raise HTTPException(status_code=503, detail="Vector store upsert failed")
 
     return IngestResponse(
         document_id=body.document_id, chunks_indexed=chunks_indexed, status="indexed"
@@ -269,8 +276,9 @@ def ask(body: AskRequest) -> AskResponse:
 
     try:
         matches = query_similar(body.question, top_k=RAG_TOP_K)
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Retrieval failed: {exc}")
+    except Exception:
+        logger.exception("Retrieval failed")
+        raise HTTPException(status_code=503, detail="Retrieval failed")
 
     retrieved_chunks = to_retrieved_chunks(matches)
     prompt = build_grounding_prompt(body.question, retrieved_chunks)
