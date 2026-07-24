@@ -1,0 +1,82 @@
+[
+  {
+    "question": "What is the calendar year deductible for the Northwind Standard plan?",
+    "answer": "The calendar year deductible for the Northwind Standard plan is $2,000 for each individual and $4,000 for each family.",
+    "expected_document_id": "northwind-standard-benefits-details",
+    "retrieved_chunk_ids": [
+      "northwind-standard-benefits-details-43",
+      "northwind-health-plus-benefits-details-41",
+      "northwind-standard-benefits-details-3",
+      "northwind-standard-benefits-details-4",
+      "northwind-standard-benefits-details-53"
+    ],
+    "retrieval_hit": true,
+    "correctness": true,
+    "faithful": true,
+    "faithfulness_reasoning": "The statement in the ANSWER accurately reflects the information provided in the CONTEXT. It correctly states that the calendar year deductible for the Northwind Standard plan is $2,000 for each individual and $4,000 for each family, without adding any unsupported claims."
+  },
+  {
+    "question": "What is the out-of-pocket maximum for the Northwind Standard plan?",
+    "answer": "The out-of-pocket maximum for the Northwind Standard plan is $6,350 for an individual and $12,700 for a family.",
+    "expected_document_id": "northwind-standard-benefits-details",
+    "retrieved_chunk_ids": [
+      "northwind-standard-benefits-details-4",
+      "northwind-standard-benefits-details-53",
+      "northwind-standard-benefits-details-3",
+      "northwind-standard-benefits-details-50",
+      "northwind-health-plus-benefits-details-48"
+    ],
+    "retrieval_hit": true,
+    "correctness": true,
+    "faithful": true,
+    "faithfulness_reasoning": "The answer correctly states the out-of-pocket maximum for the Northwind Standard plan as $6,350 for an individual and $12,700 for a family, which is directly supported by the context. There are no additional claims in the answer that go beyond what is stated in the context."
+  },
+  {
+    "question": "What is the prescription drug deductible under the Northwind Standard plan?",
+    "answer": "The prescription drug deductible under the Northwind Standard plan is $250 per individual and $500 per family.",
+    "expected_document_id": "northwind-standard-benefits-details",
+    "retrieved_chunk_ids": [
+      "northwind-standard-benefits-details-43",
+      "northwind-standard-benefits-details-3",
+      "northwind-standard-benefits-details-4",
+      "northwind-standard-benefits-details-171",
+      "northwind-standard-benefits-details-389"
+    ],
+    "retrieval_hit": true,
+    "correctness": true,
+    "faithful": true,
+    "faithfulness_reasoning": "The statement about the prescription drug deductible being $250 per individual and $500 per family is directly supported by the CONTEXT provided."
+  },
+  {
+    "question": "What is the in-network copayment for a primary care visit under Northwind Health Plus?",
+    "answer": "The in-network copayment for a primary care visit under Northwind Health Plus is typically around $20.",
+    "expected_document_id": "northwind-health-plus-benefits-details",
+    "retrieved_chunk_ids": [
+      "northwind-health-plus-benefits-details-33",
+      "northwind-health-plus-benefits-details-34",
+      "northwind-health-plus-benefits-details-35",
+      "northwind-health-plus-benefits-details-39",
+      "northwind-standard-benefits-details-35"
+    ],
+    "retrieval_hit": true,
+    "correctness": true,
+    "faithful": true,
+    "faithfulness_reasoning": "The statement that the in-network copayment for a primary care visit under Northwind Health Plus is typically around $20 is directly supported by the CONTEXT provided. The CONTEXT explicitly states, 'The copayment for primary care visits is typically around $20,' confirming that this claim is valid."
+  },
+  {
+    "question": "What is the in-network calendar year deductible for the Northwind Health Plus plan?",
+    "answer": "The in-network calendar year deductible for the Northwind Health Plus plan is $1,500 for individuals and $3,000 for families.",
+    "expected_document_id": "northwind-health-plus-benefits-details",
+    "retrieved_chunk_ids": [
+      "northwind-health-plus-benefits-details-41",
+      "northwind-standard-benefits-details-43",
+      "northwind-health-plus-benefits-details-43",
+      "northwind-health-plus-benefits-details-406",
+      "northwind-standard-benefits-details-3"
+    ],
+    "retrieval_hit": true,
+    "correctness": true,
+    "faithful": true,
+    "faithfulness_reasoning": "The answer correctly states the in-network calendar year deductible amounts for the Northwind Health Plus plan as $1,500 for individuals and $3,000 for families, which is explicitly supported by the provided context."
+  }
+]
