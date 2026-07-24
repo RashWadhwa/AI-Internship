@@ -33,7 +33,18 @@ def call_json(method: str, url: str, payload: dict | None = None) -> tuple[int, 
         return 0, {"error": str(exc)}
 
 
+REFUSAL_PHRASE = "I don't have enough information to answer that."
+
+
 def render_ask_result(data: dict | str) -> None:
+    """Render an /ask response, detecting refusal from sources_needed or the exact refusal phrase.
+
+    Pinecone always returns its top-k nearest vectors regardless of relevance (no similarity
+    cutoff), so retrieved_chunk_ids is never empty even when nothing relevant was found — and the
+    model doesn't reliably set sources_needed=true every time it refuses in the answer text. The
+    phrase check is a second, more reliable signal since it's the exact wording the grounding
+    prompt instructs the model to use when it refuses.
+    """
     if not isinstance(data, dict) or "error" in data:
         st.error(data.get("error", "Request failed") if isinstance(data, dict) else data)
         return
@@ -41,8 +52,9 @@ def render_ask_result(data: dict | str) -> None:
     answer = data.get("answer", {})
     sources_needed = answer.get("sources_needed", False)
     chunk_ids = data.get("retrieved_chunk_ids", [])
+    refused = sources_needed or not chunk_ids or REFUSAL_PHRASE in answer.get("answer", "")
 
-    if sources_needed or not chunk_ids:
+    if refused:
         st.warning("⚠️ Refused — insufficient context in the vector store to answer confidently.")
     else:
         st.success("✅ Answered from retrieved context")
