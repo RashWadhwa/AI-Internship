@@ -13,6 +13,8 @@ import os
 import httpx
 import streamlit as st
 
+WORKDIR_CMD = "ai-engineering-bootcamp-v2/week-1v2"
+
 
 def call_json(method: str, url: str, payload: dict | None = None) -> tuple[int, dict | str]:
     try:
@@ -79,6 +81,18 @@ if st.sidebar.button("Check API health"):
     status, data = call_json("GET", f"{base_url}/health")
     st.sidebar.markdown(f"**HTTP {status}**" if status else "**Not connected**")
     st.sidebar.json(data)
+
+st.sidebar.markdown("### Start the API")
+st.sidebar.code(
+    f"cd {WORKDIR_CMD}\n"
+    "uvicorn main:app --host 127.0.0.1 --port 8000 --reload",
+    language="bash",
+)
+st.sidebar.markdown("### Start this page")
+st.sidebar.code(
+    f"cd {WORKDIR_CMD}\nstreamlit run rag_demo_page.py",
+    language="bash",
+)
 
 tab_ingest, tab_ask = st.tabs(["Ingest", "Ask"])
 
