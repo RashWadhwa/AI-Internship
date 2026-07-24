@@ -44,7 +44,14 @@ simplifies the final deployment and documentation pass.
 
 ## Deployment on Render.com
 
-I deployed the Week 1 demo as two separate Render web services:
+**Live URLs** (two separate Render services — easy to mix up, so labeled explicitly):
+
+| Service | URL | What it is |
+|---|---|---|
+| **API** (FastAPI) | https://ai-engineering-bootcamp-u7ud.onrender.com | The actual backend. Swagger docs at [`/docs`](https://ai-engineering-bootcamp-u7ud.onrender.com/docs). Endpoints: `/health`, `/ask`, `/ingest`, `/debug/pinecone`, `/debug/retrieve`. |
+| **Streamlit UI** | https://ai-eng-bootcamp-5khs.onrender.com | A browser frontend that calls the API above. Has no endpoints of its own — hitting any path (`/health`, `/debug/...`) just returns the Streamlit app shell, not JSON. |
+
+Both are defined in [render.yaml](render.yaml) as `ai-engineering-api` and `ai-engineering-streamlit`, both deploying from the `main` branch, both rooted at `ai-engineering-bootcamp-v2/week-1v2`. Feature work happens on a branch (e.g. `add/render-manifest`) and only reaches these live URLs once merged into `main` and pushed — Render doesn't deploy unmerged branches.
 
 - API service (FastAPI)
 	- **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2`
@@ -56,7 +63,7 @@ I deployed the Week 1 demo as two separate Render web services:
 	- **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2` (create a separate Render service pointing to the same folder)
 	- **Build Command:** same as API (install requirements)
 	- **Start Command:** `streamlit run demo_page.py --server.port $PORT --server.address 0.0.0.0`
-	- **Notes:** I added `start_streamlit.sh` to the folder; you can use it as the Start Command (`sh start_streamlit.sh`) or paste the command above.
+	- **Notes:** I added `start_streamlit.sh` to the folder; you can use it as the Start Command (`sh start_streamlit.sh`) or paste the command above. There's also `rag_demo_page.py`, a second Streamlit page for the `/ingest` + `/ask` RAG flow specifically — not wired into `start_streamlit.sh` yet, so it currently only runs locally (`streamlit run rag_demo_page.py`), pointed at the API URL above via the sidebar or `API_BASE_URL` env var.
 
 Common tips:
 
