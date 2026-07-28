@@ -71,8 +71,23 @@ Common tips:
 - If a dependency fails to build, upgrade pip/setuptools/wheel in the Build Command (see above).
 - The repo includes `runtime.txt` to pin Python to a compatible version on Render.
 
+### Here are a few screenshots of output from week2
 
-![alt text](retrieval.png)
+![](ai-engineering-bootcamp-v2\week-1v2\images\Week2\ingestingWorked.jpg)
+
+![](ai-engineering-bootcamp-v2/week-1v2/images/Week2/askWorked.jpg)
+
+![](ai-engineering-bootcamp-v2\week-1v2\images\Week2\newUI.jpg)
+
+![](ai-engineering-bootcamp-v2\week-1v2\images\Week2\NorthwindQ&AChecked.jpg)
+
+![](ai-engineering-bootcamp-v2\week-1v2\images\Week2\outOfScopeQuestionOutput.jpg)
+
+![](ai-engineering-bootcamp-v2\week-1v2\images\Week2\Q&A2.jpg)
+
+![](ai-engineering-bootcamp-v2\week-1v2\images\Week2\retrieval.png)
+
+
 
 
 
