@@ -1,7 +1,7 @@
 # AI-Enginnering-Bootcamp
 
 This repository contains my AI Engineering bootcamp work, organised week by week.
-Below is a concise status update for each week and the next steps I plan to take.
+Below is a concise status update for each week, along with the next steps I plan to take.
 
 ## Week 1 — Typed `/ask` demo (complete)
 
@@ -43,8 +43,12 @@ Keeping a consistent weekly `README.md` makes the repository easier to review an
 simplifies the final deployment and documentation pass.
 
 ## Deployment on Render.com
+**Live URLs** (two separate Render services — easy to mix up, so labelled explicitly):
 
-[Demo]()
+| Service | URL | What it is |
+|---|---|---|
+| **API** (FastAPI) | https://ai-engineering-bootcamp-u7ud.onrender.com | The actual backend. Swagger docs at [`/docs`](https://ai-engineering-bootcamp-u7ud.onrender.com/docs). Endpoints: `/health`, `/ask`, `/ingest`, `/debug/pinecone`, `/debug/retrieve`. |
+| **Streamlit UI** | https://ai-eng-bootcamp-5khs.onrender.com | A browser frontend that calls the API above. Has no endpoints of its own — hitting any path (`/health`, `/debug/...`) just returns the Streamlit app shell, not JSON. |
 
 Both are defined in [render.yaml](render.yaml) as `ai-engineering-api` and `ai-engineering-streamlit`, both deploying from the `main` branch, both rooted at `ai-engineering-bootcamp-v2/week-1v2`. Feature work happens on a branch (e.g. `add/render-manifest`) and only reaches these live URLs once merged into `main` and pushed — Render doesn't deploy unmerged branches.
 
