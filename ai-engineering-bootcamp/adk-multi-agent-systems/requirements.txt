@@ -1,0 +1,14 @@
+google-adk>=1.0.0
+google-genai>=1.0.0
+python-dotenv>=1.0.0
+a2a-sdk>=0.2.0
+uvicorn>=0.30.0
+streamlit>=1.35.0
+mcp>=1.0.0
+langfuse>=2.0.0
+openinference-instrumentation-google-adk
+# langfuse/openinference pull in opentelemetry-api/sdk 1.44.x by default, but
+# google-adk 2.x pins <=1.42.1 -- installing in this order leaves a resolver
+# conflict warning (harmless in practice, but pin explicitly to silence it).
+opentelemetry-api==1.42.1
+opentelemetry-sdk==1.42.1

@@ -11,20 +11,63 @@ structured-model output, validation/retry guardrails, and basic observability.
 Artifacts:
 
 - API health check screenshot
-	![healthCheck](ai-engineering-bootcamp-v2/week-1v2/images/healthCheck.png)
+	![healthCheck](ai-engineering-bootcamp/week-1/images/healthCheck.png)
 - Streamlit demo screenshots
-	![output1](ai-engineering-bootcamp-v2/week-1v2/images/output1.png)
-	![output2](ai-engineering-bootcamp-v2/week-1v2/images/output2.png)
+	![output1](ai-engineering-bootcamp/week-1/images/output1.png)
+	![output2](ai-engineering-bootcamp/week-1/images/output2.png)
 
-See `ai-engineering-bootcamp-v2/week-1v2/README.md` for usage instructions and
+See `ai-engineering-bootcamp/week-1/README.md` for usage instructions and
 PowerShell-based venv activation steps.
 
-## Week 2 — Retrieval & Vector DBs (in progress)
+## Week 2 — Retrieval & Vector DBs (complete)
 
-Work this week focuses on Retrieval-Augmented Generation (RAG) and experimenting
+Work this week focused on Retrieval-Augmented Generation (RAG) and experimenting
 with vector databases. Reference materials and the working notebook live in:
 
-`ai-engineering-bootcamp-v2/week-2/rag-vector-databases/`
+`ai-engineering-bootcamp/week-2/rag-vector-databases/`
+
+Session 2's RAG extension of the `/ask`/`/ingest` API (Pinecone-backed,
+Northwind health-benefits corpus) also lives in `ai-engineering-bootcamp/week-1/` —
+see the Deployment section below for live URLs.
+
+## Week 3 — ADK Multi-Agent Systems (in progress)
+
+Building three progressive multi-agent demos with Google's Agent Development Kit
+(ADK) in `ai-engineering-bootcamp/adk-multi-agent-systems/`: local-tool routing,
+MCP (live database tools), and A2A (agent-to-agent over HTTP). See that folder's
+own `README.md` for setup and how to run each demo.
+
+Status (verified 2026-08-02 with real Gemini/Pinecone calls, not just written):
+- **Demo 1 (routing)** — adapted from the class starter to my capstone theme
+  (Healthcare): a `healthcare_router` root agent delegates to `benefits_agent`,
+  `clinical_agent`, and `escalation_agent`, each with their own local-function
+  tools (still stub data). Ran end-to-end: all three routes delegate and
+  answer correctly. `streamlit_app.py`'s Demo 1 page uses the identical
+  agents; app confirmed serving (HTTP 200) with the same theme.
+- **`capstone_agent.py`** — single-agent (no router) version of just the
+  benefits-coverage job, with a placeholder retrieval tool, step-limited
+  (`MAX_STEPS`) Think/Act/Observe logging. Lives in
+  `adk-multi-agent-systems/`, kept as the pattern reference.
+- **`week-1/adk_agent.py`** (done, verified) — the real version: same
+  single-agent pattern, but its retrieval tool calls `vectorstore.query_similar`
+  directly, so it queries the actual Northwind Pinecone index — no
+  Supabase/MCP needed, since the RAG source is Pinecone, already configured.
+  Ran end-to-end with real citations from the ingested PDFs. Lives in
+  `week-1/` as a sibling to `main.py`, not a change to the deployed `/ask`
+  endpoint.
+- **Demo 2 (MCP)** and **Demo 3 (A2A)** — not planned for the capstone; the
+  capstone's data lives in Pinecone, not Supabase, so MCP isn't needed there.
+  Left as class-starter reference material, clearly labeled as such in
+  `streamlit_app.py`'s UI.
+- **Fixed to get real runs working**: several Gemini model names 404'd or
+  hit hard free-tier quota walls on this API key (`"gemini-2.5-flash"`,
+  `"gemini-2.5-flash-lite"` 404; `"gemini-2.0-flash"`,
+  `"gemini-2.0-flash-lite"` — zero free-tier entitlement;
+  `"gemini-flash-latest"` worked but only a 20/day cap) — every ADK file now
+  uses `"gemini-3.1-flash-lite"`, a stable pinned model confirmed to have
+  working quota. Also fixed a harmless-but-noisy tracing error in
+  `demo1_routing.py`/`capstone_agent.py`/`adk_agent.py` caused by returning
+  from inside the event stream loop too early.
 
 
 ### Weekly README guidance
@@ -50,16 +93,16 @@ simplifies the final deployment and documentation pass.
 | **API** (FastAPI) | https://ai-engineering-bootcamp-u7ud.onrender.com | The actual backend. Swagger docs at [`/docs`](https://ai-engineering-bootcamp-u7ud.onrender.com/docs). Endpoints: `/health`, `/ask`, `/ingest`, `/debug/pinecone`, `/debug/retrieve`. |
 | **Streamlit UI** | https://ai-eng-bootcamp-5khs.onrender.com | A browser frontend that calls the API above. Has no endpoints of its own — hitting any path (`/health`, `/debug/...`) just returns the Streamlit app shell, not JSON. |
 
-Both are defined in [render.yaml](render.yaml) as `ai-engineering-api` and `ai-engineering-streamlit`, both deploying from the `main` branch, both rooted at `ai-engineering-bootcamp-v2/week-1v2`. Feature work happens on a branch (e.g. `add/render-manifest`) and only reaches these live URLs once merged into `main` and pushed — Render doesn't deploy unmerged branches.
+Both are defined in [render.yaml](render.yaml) as `ai-engineering-api` and `ai-engineering-streamlit`, both deploying from the `main` branch. **Known issue (as of 2026-08-02):** `render.yaml`'s `root:` for both services still says `ai-engineering-bootcamp-v2/week-1v2`, a path that no longer exists after the repo was restructured to `ai-engineering-bootcamp/week-1` — this needs a deliberate fix (it's deploy-affecting) before the next `render.yaml`-driven deploy. Feature work happens on a branch (e.g. `add/render-manifest`) and only reaches these live URLs once merged into `main` and pushed — Render doesn't deploy unmerged branches.
 
 - API service (FastAPI)
-	- **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2`
+	- **Root Directory:** `ai-engineering-bootcamp/week-1` (currently misconfigured in `render.yaml` — see known issue above)
 	- **Build Command:** `python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
 	- **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 	- **Notes:** I added a nested `Procfile` in the week folder so Render can detect the app when the Root Directory is set.
 
 - Streamlit demo (UI)
-	- **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2` (create a separate Render service pointing to the same folder)
+	- **Root Directory:** `ai-engineering-bootcamp/week-1` (create a separate Render service pointing to the same folder; also currently misconfigured in `render.yaml`)
 	- **Build Command:** same as API (install requirements)
 	- **Start Command:** `streamlit run demo_page.py --server.port $PORT --server.address 0.0.0.0`
 	- **Notes:** I added `start_streamlit.sh` to the folder; you can use it as the Start Command (`sh start_streamlit.sh`) or paste the command above. There's also `rag_demo_page.py`, a second Streamlit page for the `/ingest` + `/ask` RAG flow specifically — not wired into `start_streamlit.sh` yet, so it currently only runs locally (`streamlit run rag_demo_page.py`), pointed at the API URL above via the sidebar or `API_BASE_URL` env var.
@@ -72,19 +115,19 @@ Common tips:
 
 ### Here are a few screenshots of output from week2
 
-![](ai-engineering-bootcamp-v2/week-1v2/images/Week2/ingestingWorked.jpg)
+![](ai-engineering-bootcamp/week-1/images/Week2/ingestingWorked.jpg)
 
-![](ai-engineering-bootcamp-v2/week-1v2/images/Week2/askWorked.jpg)
+![](ai-engineering-bootcamp/week-1/images/Week2/askWorked.jpg)
 
-![](ai-engineering-bootcamp-v2/week-1v2/images/Week2/newUI.jpg)
+![](ai-engineering-bootcamp/week-1/images/Week2/newUI.jpg)
 
-![](ai-engineering-bootcamp-v2/week-1v2/images/Week2/NorthwindQ&AChecked.jpg)
+![](ai-engineering-bootcamp/week-1/images/Week2/NorthwindQ&AChecked.jpg)
 
-![](ai-engineering-bootcamp-v2/week-1v2/images/Week2/outOfScopeQuestionOutput.jpg)
+![](ai-engineering-bootcamp/week-1/images/Week2/outOfScopeQuestionOutput.jpg)
 
-![](ai-engineering-bootcamp-v2/week-1v2/images/Week2/Q&A2.jpg)
+![](ai-engineering-bootcamp/week-1/images/Week2/Q&A2.jpg)
 
-![](ai-engineering-bootcamp-v2/week-1v2/images/Week2/retrieval.png)
+![](ai-engineering-bootcamp/week-1/images/Week2/retrieval.png)
 
 
 

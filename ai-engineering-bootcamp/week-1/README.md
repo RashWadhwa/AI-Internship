@@ -21,7 +21,7 @@ runtime metadata.
 
 ## Quick Start
 
-Run these commands from this `week-1v2` folder (PowerShell):
+Run these commands from this `week-1` folder (PowerShell):
 
 ```powershell
 python -m venv .venv
@@ -84,12 +84,12 @@ LLM output at the boundary of your application.
 I deploy the demo as two Render services: the API and the Streamlit UI. Recommended settings:
 
 - Service 1 — API
-  - **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2`
+  - **Root Directory:** `ai-engineering-bootcamp/week-1`
   - **Build Command:** `python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
   - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
 - Service 2 — Streamlit UI
-  - **Root Directory:** `ai-engineering-bootcamp-v2/week-1v2` (create a separate web service)
+  - **Root Directory:** `ai-engineering-bootcamp/week-1` (create a separate web service)
   - **Build Command:** same as API
   - **Start Command:** `streamlit run demo_page.py --server.port $PORT --server.address 0.0.0.0`
   - Or use the included helper script: `sh start_streamlit.sh`
@@ -137,6 +137,37 @@ uvicorn stages.stage_2_structured_output:app --host 127.0.0.1 --port 8000 --relo
 uvicorn stages.stage_3_guardrails_and_observability:app --host 127.0.0.1 --port 8000 --reload
 ```
 
+## ADK Capstone Agent (`adk_agent.py`)
+
+A sibling entry point to `main.py` — not part of the deployed `/ask` flow.
+It's a single-agent Google ADK agent (`benefits_coverage_agent`, pattern
+copied from `../adk-multi-agent-systems/demo1_routing.py`/`capstone_agent.py`)
+that answers benefits-coverage questions by calling `vectorstore.query_similar`
+directly, so it searches the same Pinecone index `/ask` does — just through
+Gemini instead of OpenAI, and with visible THINK/ACT/OBSERVE step logging
+and a hard step limit (`MAX_STEPS = 6`) so it can't loop forever.
+
+Setup (in addition to the `OPENAI_API_KEY`/`PINECONE_API_KEY` this folder
+already needs): `GOOGLE_API_KEY` must be in the repo-root `.env` — it's not
+enough for it to exist only in `../adk-multi-agent-systems/.env`, since this
+script's `.env` lookup (this folder, then up two levels) doesn't reach there.
+
+Verified working end-to-end (real Pinecone retrieval + real Gemini call) as
+of 2026-08-02. Note: the model name is `"gemini-3.1-flash-lite"` — several
+others 404'd or hit hard free-tier quota walls on this key first
+(`"gemini-2.5-flash"`, `"gemini-2.5-flash-lite"`: 404; `"gemini-2.0-flash"`,
+`"gemini-2.0-flash-lite"`: zero free-tier entitlement); see
+`../adk-multi-agent-systems/README.md`'s "Model choice" section for the full
+story. A Google AI Pro subscription doesn't change any of this — it's a
+separate system from Gemini API billing.
+
+Run:
+
+```powershell
+. .\.venv\Scripts\Activate.ps1
+python adk_agent.py
+```
+
 ## Smoke Test
 
 This starts the final API, checks `/health` and `/docs`, and does not call OpenAI:
@@ -149,9 +180,11 @@ python smoke_test.py
 ## File Map
 
 ```text
-week-1v2/
+week-1/
 ├── README.md
-├── main.py                         # Final API used by students
+├── main.py                         # Final API used by students (/ask, /ingest)
+├── vectorstore.py                  # Pinecone + OpenAI embeddings (RAG layer)
+├── adk_agent.py                    # Google ADK capstone agent (Gemini, sibling to main.py)
 ├── demo_page.py                    # Streamlit UI for the final API
 ├── smoke_test.py                   # No-token API startup check
 ├── requirements.txt

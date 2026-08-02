@@ -4,17 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-AI Engineering bootcamp coursework, organized by week. The only actively
-deployed/runnable code is in `ai-engineering-bootcamp-v2/week-1v2/` — a
-FastAPI service (Session 1: typed `/ask`, extended in Session 2 with
-Pinecone-backed RAG) plus two Streamlit UIs.
-`ai-engineering-bootcamp-v2/week-2/rag-vector-databases/` is a separate,
+AI Engineering bootcamp coursework, organized by week under
+`ai-engineering-bootcamp/`. The only actively deployed/runnable code is in
+`ai-engineering-bootcamp/week-1/` — a FastAPI service (Session 1: typed
+`/ask`, extended in Session 2 with Pinecone-backed RAG) plus two Streamlit
+UIs. `ai-engineering-bootcamp/week-2/rag-vector-databases/` is a separate,
 standalone Jupyter notebook (LangChain + Chroma reference material) — not
-wired into the deployed app.
+wired into the deployed app. `ai-engineering-bootcamp/adk-multi-agent-systems/`
+(Session 3) is a separate, standalone set of Google ADK demos — see its own
+section below. It has its own venv/`pyproject.toml`, but as of the capstone
+agent (`week-1/adk_agent.py`, see below) `week-1/` now also depends on
+`google-adk`/`google-genai` and needs a `GOOGLE_API_KEY`, so the two folders
+are no longer fully independent.
+
+> Note: this folder was previously `ai-engineering-bootcamp-v2/week-1v2/`
+> (and week-2 under `ai-engineering-bootcamp-v2/`). The repo was
+> restructured to drop the `-v2`/`v2` suffixes; if you find stale references
+> to the old paths elsewhere (docs, `render.yaml`), they need updating too —
+> see the Deployment note below.
 
 ## Commands
 
-All commands run from `ai-engineering-bootcamp-v2/week-1v2/`, using the venv
+All commands run from `ai-engineering-bootcamp/week-1/`, using the venv
 at the repo root (`.venv`).
 
 Setup:
@@ -111,23 +122,136 @@ repo-root `.env` is what actually supplies `OPENAI_API_KEY`/
 don't see the repo-root `.env`.
 
 **Deployment**: `render.yaml` (repo root) defines two separate Render
-services from the same `week-1v2` root directory, both deploying from
-`main` only — `ai-engineering-api` (the FastAPI backend) and
-`ai-engineering-streamlit` (runs `demo_page.py` via `start_streamlit.sh`;
-`rag_demo_page.py` isn't wired into any start command yet, so it currently
-only runs locally). These produce two different live URLs that are easy to
-confuse — see the table in the repo-root `README.md` before assuming which
-one a request hit. Non-secret env vars (`PINECONE_INDEX_NAME`,
-`PINECONE_CLOUD`, `PINECONE_REGION`, `EMBEDDING_MODEL`) are set directly in
-`render.yaml`; secrets (`OPENAI_API_KEY`, `PINECONE_API_KEY`) are declared
-with `sync: false` and must be pasted into the Render dashboard manually —
-pushing a blueprint change that touches `envVars` for the first time can
-require re-entering them even if they were set before.
+services, both deploying from `main` only — `ai-engineering-api` (the
+FastAPI backend) and `ai-engineering-streamlit` (runs `demo_page.py` via
+`start_streamlit.sh`; `rag_demo_page.py` isn't wired into any start command
+yet, so it currently only runs locally). These produce two different live
+URLs that are easy to confuse — see the table in the repo-root `README.md`
+before assuming which one a request hit. Non-secret env vars
+(`PINECONE_INDEX_NAME`, `PINECONE_CLOUD`, `PINECONE_REGION`,
+`EMBEDDING_MODEL`) are set directly in `render.yaml`; secrets
+(`OPENAI_API_KEY`, `PINECONE_API_KEY`) are declared with `sync: false` and
+must be pasted into the Render dashboard manually — pushing a blueprint
+change that touches `envVars` for the first time can require re-entering
+them even if they were set before.
+>
+> **Known issue (as of 2026-08-02): `render.yaml`'s `root:` for both
+> services still points at `ai-engineering-bootcamp-v2/week-1v2`, which no
+> longer exists after the repo restructure — it should be
+> `ai-engineering-bootcamp/week-1`. Until this is fixed, a fresh deploy from
+> `render.yaml` will fail to find the app. Fix deliberately (it's a
+> deploy-affecting change) rather than as a side effect of a docs edit.**
 
-**`data/northwind/`** holds two real PDFs (Northwind Health Plus/Standard
-benefits docs) pulled from Microsoft's `azure-search-openai-demo` reference
-repo, used as the sample RAG corpus. Note: the source PDFs themselves
-contain internally inconsistent figures in places (e.g. the Standard plan's
-out-of-pocket max is stated as both $6,000 and $6,350/$12,700 in different
-sections) — this is a property of the sample data, not a retrieval bug, and
-`eval_northwind.py`'s known-answer set accounts for it.
+**`data/northwind/`** (under `week-1/`) holds two real PDFs (Northwind
+Health Plus/Standard benefits docs) pulled from Microsoft's
+`azure-search-openai-demo` reference repo, used as the sample RAG corpus.
+Note: the source PDFs themselves contain internally inconsistent figures in
+places (e.g. the Standard plan's out-of-pocket max is stated as both $6,000
+and $6,350/$12,700 in different sections) — this is a property of the
+sample data, not a retrieval bug, and `eval_northwind.py`'s known-answer set
+accounts for it.
+
+## `adk-multi-agent-systems/` (Session 3 — not deployed)
+
+Standalone Google ADK (Agent Development Kit) coursework, separate from
+`week-1/`'s FastAPI/Pinecone stack — different dependency set (own
+`pyproject.toml` + `requirements.txt`, not the repo-root `.venv`), different
+LLM provider (Gemini via `GOOGLE_API_KEY`, not OpenAI), no shared code.
+
+Three progressive demos, each runnable standalone (`python demo1_routing.py`
+etc. — see the folder's own `README.md` for full run instructions):
+- **`demo1_routing.py`** — one root `Agent` (`sub_agents=[...]`) routes a
+  user message to a specialist agent, each with local Python-function
+  tools. Adapted to the Session 3 healthcare capstone theme: `benefits_agent`
+  (coverage/deductible/prior-auth lookups), `clinical_agent` (self-care
+  guidance, clinic status), `escalation_agent` (urgent-symptom triage
+  ticketing) behind a `healthcare_router` root agent. Uses stub in-memory
+  data, not `week-1/vectorstore.py` — see the integration note below.
+- **`demo2_mcp.py`** — a billing agent gets its tools from a live Supabase
+  MCP server (launched as an `npx` subprocess via `McpToolset`) instead of
+  hardcoded functions. Requires `SUPABASE_ACCESS_TOKEN` /
+  `SUPABASE_PROJECT_REF` — not yet configured as of 2026-08-02.
+  `shipping_agent.py` is exposed separately via `to_a2a(...)` and must be
+  running (`uvicorn shipping_agent:app --port 8001`) before Demo 3.
+- **`demo3_full_system.py`** — combines all three tool sources under one
+  router: local tools (technical), MCP/Supabase (billing), and A2A
+  (`RemoteA2aAgent` pointed at the standalone `shipping_agent.py` process).
+  Also wires up Langfuse tracing (`GoogleADKInstrumentor`) — `langfuse` and
+  `openinference-instrumentation-google-adk` are required for this and for
+  `streamlit_app.py`, but are declared only in `requirements.txt`, not yet
+  in `pyproject.toml`; keep both files in sync if you add dependencies.
+
+**`capstone_agent.py`** — a minimal single-agent (no `sub_agents`) starting
+point for the capstone job, built with the same patterns as
+`demo1_routing.py` (`load_dotenv`/`MODEL`, tool-function shape,
+`Agent(...)` fields, `ask()`/`main()` Runner harness). `benefits_coverage_agent`
+answers benefits-coverage questions using one placeholder tool
+(`search_benefits_documents`, a stub — will become a real
+`vectorstore.query_similar` call), capped at `MAX_STEPS = 6` stream events so
+it can't loop forever, with `log_event()` printing each event as
+THINK/ACT/OBSERVE. No router here — the job doesn't need one.
+
+**Capstone integration — implemented**: `week-1/adk_agent.py` is a sibling
+entry point to `main.py` (not an edit to it — `main.py`'s `/ask` stays
+OpenAI-only and deployed as-is). It's the real-RAG version of
+`adk-multi-agent-systems/capstone_agent.py`: same single-agent
+`benefits_coverage_agent`, same `Agent`/Runner/logging/`MAX_STEPS` pattern,
+but `search_benefits_documents` now calls `vectorstore.query_similar`
+directly (imported like `main.py` does) instead of returning a stub —
+so it queries the same Northwind Pinecone index `/ask` already uses. No
+Supabase/MCP needed for this; the RAG source is Pinecone, already configured.
+Still single-agent, no router — the coverage-lookup job doesn't need one;
+`demo1_routing.py`'s router pattern is there if a second job (e.g.
+appointment scheduling) needs dispatching later.
+
+Because this file lives in `week-1/` and imports `vectorstore.py` directly,
+`week-1/requirements.txt` now also includes `google-adk`/`google-genai` —
+unused by the deployed `main.py`, but needed for `adk_agent.py` to run in the
+same venv (both are now installed in the repo-root `.venv`).
+`GOOGLE_API_KEY` has been added to the repo-root `.env` (copied from
+`adk-multi-agent-systems/.env`, which `adk_agent.py`'s dotenv walk doesn't
+reach on its own).
+
+**Verified working (2026-08-02)**: ran `python adk_agent.py` end-to-end
+against the real Pinecone index and Gemini — `search_benefits_documents`
+returns real ranked chunks from `northwind-health-plus-benefits-details`,
+and the agent answers with a citation. Also ran `demo1_routing.py`
+end-to-end: all three routes (benefits/clinical/escalation) delegated and
+answered correctly, clean log, no tracebacks. Fixes that were needed to get
+there:
+- `search_benefits_documents` now wraps `query_similar` in try/except,
+  logging the real exception and returning `{"error": ...}` instead of
+  raising — so a Pinecone/OpenAI failure becomes an observation the model
+  reacts to (per its instruction's error-handling clause) rather than
+  crashing the run.
+- `demo1_routing.py`'s and `capstone_agent.py`'s `ask()` helpers used to
+  `return` the moment they saw `event.is_final_response()`, which breaks out
+  of the `async for` early and forces ADK's OpenTelemetry span to close from
+  a different async context — this raised a harmless but noisy
+  `GeneratorExit`/`ValueError` traceback on every run. Both now let the event
+  stream run to completion and only `break` early on a genuine step-limit
+  abort. `adk_agent.py` already had this fix from its own verification pass.
+  `demo2_mcp.py`/`demo3_full_system.py` still have the old early-return
+  pattern — same latent noisy-but-harmless issue if/when those are run.
+- `demo1_routing.py`'s `main()` now wraps each test query in try/except so
+  one failed call (rate limit or otherwise) doesn't crash the whole test
+  run — it prints `[FAILED] ...` and moves to the next query instead.
+
+**Model name history (2026-08-02) — settled on `"gemini-3.1-flash-lite"`.**
+This API key hit a wall on every model tried before that one:
+`"gemini-2.5-flash"` and `"gemini-2.5-flash-lite"` both 404 ("no longer
+available to new users"); `"gemini-2.0-flash"` and `"gemini-2.0-flash-lite"`
+both 429 with `limit: 0` — a hard free-tier entitlement wall, not exhausted
+quota; `"gemini-flash-latest"` (an alias) resolved to `"gemini-3.6-flash"`
+and worked, but only a **20 requests/day** cap, which this session's testing
+exhausted mid-run. `"gemini-3.1-flash-lite"` and `"gemini-flash-lite-latest"`
+were the two confirmed-working options found by testing candidates directly
+against the API; `"gemini-3.1-flash-lite"` was chosen since it's a pinned,
+stable model (not a `"-latest"` alias that can silently start resolving to a
+different, differently-quota'd model later). Applied repo-wide:
+`demo1_routing.py`, `demo2_mcp.py`, `demo3_full_system.py`,
+`shipping_agent.py`, `capstone_agent.py`, `streamlit_app.py`, and
+`week-1/adk_agent.py`. Note: a Google AI **Pro** subscription (the consumer
+Gemini app plan) does not affect this — API quota comes from whether the
+Cloud project behind `GOOGLE_API_KEY` has billing enabled, a separate,
+unrelated system.
