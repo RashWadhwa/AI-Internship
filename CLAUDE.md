@@ -167,19 +167,61 @@ etc. — see the folder's own `README.md` for full run instructions):
   guidance, clinic status), `escalation_agent` (urgent-symptom triage
   ticketing) behind a `healthcare_router` root agent. Uses stub in-memory
   data, not `week-1/vectorstore.py` — see the integration note below.
-- **`demo2_mcp.py`** — a billing agent gets its tools from a live Supabase
-  MCP server (launched as an `npx` subprocess via `McpToolset`) instead of
-  hardcoded functions. Requires `SUPABASE_ACCESS_TOKEN` /
-  `SUPABASE_PROJECT_REF` — not yet configured as of 2026-08-02.
-  `shipping_agent.py` is exposed separately via `to_a2a(...)` and must be
-  running (`uvicorn shipping_agent:app --port 8001`) before Demo 3.
+- **`demo2_mcp.py`** — a `claims_agent_mcp` agent gets its tools from a live
+  Supabase MCP server (launched as an `npx` subprocess via `McpToolset`)
+  instead of hardcoded functions. Requires `SUPABASE_ACCESS_TOKEN` /
+  `SUPABASE_PROJECT_REF`, now configured — the Supabase project has real
+  `patients`/`claims`/`support_tickets` tables (healthcare-capstone-themed,
+  parallel to `demo1_routing.py`'s stub schema), created and seeded via the
+  MCP server's own `apply_migration`/`execute_sql` tools, RLS enabled
+  (deny-all — nothing needs anon/authenticated API access to these tables;
+  the MCP server itself uses elevated management-API access and is
+  unaffected by RLS). `shipping_agent.py` is exposed separately via
+  `to_a2a(...)` and must be running (`uvicorn shipping_agent:app --port
+  8001`) before Demo 3.
 - **`demo3_full_system.py`** — combines all three tool sources under one
-  router: local tools (technical), MCP/Supabase (billing), and A2A
-  (`RemoteA2aAgent` pointed at the standalone `shipping_agent.py` process).
-  Also wires up Langfuse tracing (`GoogleADKInstrumentor`) — `langfuse` and
-  `openinference-instrumentation-google-adk` are required for this and for
-  `streamlit_app.py`, but are declared only in `requirements.txt`, not yet
-  in `pyproject.toml`; keep both files in sync if you add dependencies.
+  router: local tools (technical), MCP/Supabase (`claims_agent_mcp`), and
+  A2A (`RemoteA2aAgent` pointed at the standalone `shipping_agent.py`
+  process). Also wires up Langfuse tracing (`GoogleADKInstrumentor`) —
+  `langfuse` and `openinference-instrumentation-google-adk` are required for
+  this and for `streamlit_app.py`, but are declared only in
+  `requirements.txt`, not yet in `pyproject.toml`; keep both files in sync
+  if you add dependencies.
+
+**Verified working (2026-08-02)**: ran both `demo2_mcp.py` and
+`demo3_full_system.py` end-to-end against the real Supabase project and
+Gemini — patient/claims lookups, the cross-table support-ticket query, and
+the A2A shipping handoff all returned correct real data. Bugs fixed to get
+there:
+- `google.adk.tools.mcp_tool` doesn't re-export `McpToolset`/
+  `StdioConnectionParams` at the top level in installed `google-adk` 2.6.1 —
+  both demos now import from the actual submodules
+  (`google.adk.tools.mcp_tool.mcp_toolset` /
+  `...mcp_tool.mcp_session_manager`).
+- The installed `mcp` package was 2.0.0, but `google-adk` 2.6.1 requires
+  `mcp>=1.24,<2` — `mcp` 2.x removed/moved modules (`mcp.shared.session`)
+  that `google-adk` imports directly, breaking the import outright.
+  Downgraded to `mcp` 1.29.0; `requirements.txt` now pins `mcp>=1.24,<2`
+  instead of the too-loose `mcp>=1.0.0` to stop this regressing.
+- `demo3_full_system.py`'s `ask()` had the same early-return tracing issue
+  as `demo1_routing.py` (see above) — fixed the same way. Note:
+  `demo3_full_system.py`/`streamlit_app.py` also use
+  `GoogleADKInstrumentor()` (Langfuse/OpenInference), which introduces a
+  *second*, separate source of the same class of harmless
+  `GeneratorExit`/context-detach noise (from OpenInference's own event
+  wrapper, not from this file's own `ask()` loop) — confirmed harmless
+  (all 3 test scenarios still answered correctly) but not fully silenced;
+  not chased further since it doesn't affect output.
+- `streamlit_app.py`'s Demo 2/3 pages have their own duplicated
+  `create_mcp_claims_agent()`/`create_full_system_agent()` factories (not
+  shared code with `demo2_mcp.py`/`demo3_full_system.py`) — these had the
+  same broken top-level `mcp_tool` import and the old generic
+  customers/orders schema; fixed and rethemed the same way, and the UI copy
+  (buttons, captions, placeholders) updated to match. Verified the app still
+  serves (HTTP 200) after the edit; the underlying agent-building logic is
+  structurally identical to the now-verified `demo2_mcp.py`/
+  `demo3_full_system.py`, though the Streamlit button click paths themselves
+  weren't separately re-exercised (no browser automation available here).
 
 **`capstone_agent.py`** — a minimal single-agent (no `sub_agents`) starting
 point for the capstone job, built with the same patterns as

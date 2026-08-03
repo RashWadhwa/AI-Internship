@@ -55,10 +55,24 @@ Status (verified 2026-08-02 with real Gemini/Pinecone calls, not just written):
   Ran end-to-end with real citations from the ingested PDFs. Lives in
   `week-1/` as a sibling to `main.py`, not a change to the deployed `/ask`
   endpoint.
-- **Demo 2 (MCP)** and **Demo 3 (A2A)** — not planned for the capstone; the
-  capstone's data lives in Pinecone, not Supabase, so MCP isn't needed there.
-  Left as class-starter reference material, clearly labeled as such in
-  `streamlit_app.py`'s UI.
+- **Demo 2 (MCP)** — now real: `claims_agent_mcp` queries a live Supabase
+  project via a real `patients`/`claims`/`support_tickets` schema (healthcare-
+  themed, same characters as Demo 1's stub data — Bob Smith, Jane Doe, Alice
+  Johnson — but real rows in real Postgres). Schema, seed data, and RLS
+  (deny-all — flagged by Supabase's own advisor right after table creation,
+  fixed immediately) were all set up via the Supabase MCP server's own
+  `apply_migration`/`execute_sql` tools. Ran end-to-end with correct real
+  answers, both before and after enabling RLS.
+- **Demo 3 (A2A)** — same real Supabase claims data as Demo 2, plus local
+  tools and the A2A shipping handoff; shipping stays generic (package
+  tracking isn't part of the capstone). Ran end-to-end with the shipping
+  agent running in a second process — all three routes (claims/technical/
+  shipping) answered correctly with real data.
+- Getting MCP working required two real fixes: `google-adk` 2.6.1 doesn't
+  re-export `McpToolset`/`StdioConnectionParams` from the top-level
+  `google.adk.tools.mcp_tool` package (import from submodules instead), and
+  the installed `mcp` package (2.0.0) was incompatible with what `google-adk`
+  requires (`mcp>=1.24,<2`) — downgraded and pinned in `requirements.txt`.
 - **Fixed to get real runs working**: several Gemini model names 404'd or
   hit hard free-tier quota walls on this API key (`"gemini-2.5-flash"`,
   `"gemini-2.5-flash-lite"` 404; `"gemini-2.0-flash"`,

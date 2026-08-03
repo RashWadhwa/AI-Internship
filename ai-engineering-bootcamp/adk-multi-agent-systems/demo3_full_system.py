@@ -21,7 +21,10 @@ from google.adk.agents import Agent
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+# Top-level google.adk.tools.mcp_tool doesn't re-export these in installed
+# google-adk 2.6.1 -- import from the actual submodules instead.
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
 from google.genai import types
 from mcp.client.stdio import StdioServerParameters
 
@@ -76,9 +79,9 @@ supabase_mcp = McpToolset(
 )
 
 billing_agent = Agent(
-    name="billing_agent_mcp", model=MODEL,
-    description="Billing agent with real Supabase database access via MCP.",
-    instruction="You are a billing specialist. Use MCP tools to query customers, orders, support_tickets.",
+    name="claims_agent_mcp", model=MODEL,
+    description="Healthcare claims/billing agent with real Supabase database access via MCP.",
+    instruction="You are a healthcare claims specialist. Use MCP tools to query patients, claims, support_tickets.",
     tools=[supabase_mcp],
 )
 
@@ -94,7 +97,7 @@ shipping_agent = RemoteA2aAgent(
 
 root_agent = Agent(
     name="full_support_system", model=MODEL,
-    instruction="Route to billing_agent_mcp (billing/invoices), technical_agent (bugs/crashes), "
+    instruction="Route to claims_agent_mcp (claims/billing), technical_agent (bugs/crashes), "
                 "or shipping_agent (package tracking). Never answer directly.",
     sub_agents=[billing_agent, technical_agent, shipping_agent],
 )
@@ -106,21 +109,29 @@ async def ask(agent, message):
     runner = Runner(agent=agent, app_name="demo", session_service=service)
     session = await service.create_session(app_name="demo", user_id="user1")
     content = types.Content(role="user", parts=[types.Part(text=message)])
+    # Let the generator run to completion instead of `return`-ing the moment we
+    # see a final response -- breaking out of an `async for` early forces ADK's
+    # tracing span to close from a different context, which raises a harmless
+    # but noisy OpenTelemetry error.
+    final_answer = "(no response)"
     async for event in runner.run_async(user_id="user1", session_id=session.id, new_message=content):
         if event.is_final_response() and event.content and event.content.parts:
-            return event.content.parts[0].text
-    return "(no response)"
+            final_answer = event.content.parts[0].text
+    return final_answer
 
 async def main():
     scenarios = [
-        ("BILLING (MCP)", "I'm Jane Doe (jane@example.com). What plan am I on? Show my recent orders."),
+        ("CLAIMS (MCP)", "I'm Jane Doe (jane@example.com). What plan am I on? Show my recent claims."),
         ("TECHNICAL (Local)", "My app is really slow lately. Is something wrong with your servers?"),
         ("SHIPPING (A2A)", "Where is my package for order ORD-1004? When will it arrive?"),
     ]
     for label, query in scenarios:
         print(f"\n--- {label} ---")
         print(f"User: {query}\n")
-        print(f"Agent: {await ask(root_agent, query)}\n")
+        try:
+            print(f"Agent: {await ask(root_agent, query)}\n")
+        except Exception as exc:
+            print(f"Agent: [FAILED] {type(exc).__name__}: {exc}\n")
     langfuse.flush()
 
 if __name__ == "__main__":

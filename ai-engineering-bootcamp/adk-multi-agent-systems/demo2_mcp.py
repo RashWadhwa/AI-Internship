@@ -1,6 +1,11 @@
 """
 Demo 2: MCP -- Agent with Real Database Access (Supabase)
 Run: python demo2_mcp.py
+
+Healthcare capstone theme: the Supabase project backing this has
+patients/claims/support_tickets tables (created + seeded via the MCP
+server's apply_migration/execute_sql tools -- see
+../week-1/README.md or CLAUDE.md for the schema).
 """
 
 import asyncio
@@ -13,7 +18,10 @@ load_dotenv()
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+# Top-level google.adk.tools.mcp_tool doesn't re-export these in installed
+# google-adk 2.6.1 -- import from the actual submodules instead.
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
 from google.genai import types
 from mcp.client.stdio import StdioServerParameters
 
@@ -44,10 +52,10 @@ supabase_mcp = McpToolset(
 # --- Agent ---
 
 billing_agent = Agent(
-    name="billing_agent_mcp", model=MODEL,
-    instruction="You are a billing specialist with real database access. "
-                "Use MCP tools to query customers, orders, and support_tickets tables. "
-                "Always look up the customer first.",
+    name="claims_agent_mcp", model=MODEL,
+    instruction="You are a healthcare claims and billing specialist with real database access. "
+                "Use MCP tools to query the patients, claims, and support_tickets tables. "
+                "Always look up the patient first.",
     tools=[supabase_mcp],
 )
 
@@ -58,20 +66,28 @@ async def ask(agent, message):
     runner = Runner(agent=agent, app_name="demo", session_service=service)
     session = await service.create_session(app_name="demo", user_id="user1")
     content = types.Content(role="user", parts=[types.Part(text=message)])
+    # Let the generator run to completion instead of `return`-ing the moment we
+    # see a final response -- breaking out of an `async for` early forces ADK's
+    # tracing span to close from a different context, which raises a harmless
+    # but noisy OpenTelemetry error.
+    final_answer = "(no response)"
     async for event in runner.run_async(user_id="user1", session_id=session.id, new_message=content):
         if event.is_final_response() and event.content and event.content.parts:
-            return event.content.parts[0].text
-    return "(no response)"
+            final_answer = event.content.parts[0].text
+    return final_answer
 
 async def main():
     tests = [
-        ("CUSTOMER LOOKUP", "What orders does Bob Smith have? What's the total amount?"),
-        ("CROSS-TABLE QUERY", "Show me all high-priority open support tickets with customer name and email."),
+        ("PATIENT LOOKUP", "What claims does Bob Smith have? What's the total amount?"),
+        ("CROSS-TABLE QUERY", "Show me all high-priority open support tickets with patient name and email."),
     ]
     for label, query in tests:
         print(f"\n--- {label} ---")
         print(f"User: {query}\n")
-        print(f"Agent: {await ask(billing_agent, query)}\n")
+        try:
+            print(f"Agent: {await ask(billing_agent, query)}\n")
+        except Exception as exc:
+            print(f"Agent: [FAILED] {type(exc).__name__}: {exc}\n")
 
 if __name__ == "__main__":
     asyncio.run(main())

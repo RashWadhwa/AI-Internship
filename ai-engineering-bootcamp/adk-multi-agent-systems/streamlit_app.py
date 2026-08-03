@@ -104,8 +104,11 @@ router_agent = Agent(
 
 # --- Demo 2 & 3 Agent Factories ---
 
-def create_mcp_billing_agent():
-    from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+def create_mcp_claims_agent():
+    # Top-level google.adk.tools.mcp_tool doesn't re-export these in installed
+    # google-adk 2.6.1 -- import from the actual submodules instead.
+    from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+    from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
     from mcp.client.stdio import StdioServerParameters
     token = os.getenv("SUPABASE_ACCESS_TOKEN", "")
     ref = os.getenv("SUPABASE_PROJECT_REF", "")
@@ -117,14 +120,17 @@ def create_mcp_billing_agent():
     mcp = McpToolset(connection_params=StdioConnectionParams(
         server_params=StdioServerParameters(command="npx", args=mcp_args), timeout=30.0))
     agent = Agent(
-        name="billing_agent_mcp", model=MODEL,
-        description="Billing agent with real Supabase database access via MCP.",
-        instruction="You are a billing specialist with database access. Use MCP tools to query customers, orders, support_tickets.",
+        name="claims_agent_mcp", model=MODEL,
+        description="Healthcare claims/billing agent with real Supabase database access via MCP.",
+        instruction="You are a healthcare claims specialist with database access. Use MCP tools to query patients, claims, support_tickets.",
         tools=[mcp])
     return agent, None
 
 def create_full_system_agent():
-    from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+    # Top-level google.adk.tools.mcp_tool doesn't re-export these in installed
+    # google-adk 2.6.1 -- import from the actual submodules instead.
+    from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+    from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
     from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
     from mcp.client.stdio import StdioServerParameters
     token = os.getenv("SUPABASE_ACCESS_TOKEN", "")
@@ -136,16 +142,17 @@ def create_full_system_agent():
         mcp_args += ["--project-ref", ref]
     mcp = McpToolset(connection_params=StdioConnectionParams(
         server_params=StdioServerParameters(command="npx", args=mcp_args), timeout=30.0))
-    billing = Agent(name="billing_agent_mcp", model=MODEL,
-        description="Billing with real Supabase DB via MCP.", instruction="Use MCP tools to query the database.", tools=[mcp])
+    claims = Agent(name="claims_agent_mcp", model=MODEL,
+        description="Healthcare claims with real Supabase DB via MCP.",
+        instruction="You are a healthcare claims specialist. Use MCP tools to query patients, claims, support_tickets.", tools=[mcp])
     tech = Agent(name="technical_agent", model=MODEL,
         description="Technical issues: bugs, crashes, performance.", instruction="Use search_knowledge_base and check_system_status.",
         tools=[search_knowledge_base, check_system_status])
     shipping = RemoteA2aAgent(name="shipping_agent", agent_card="http://localhost:8001",
         description="Remote agent for shipping and delivery tracking.")
     root = Agent(name="full_support_system", model=MODEL,
-        instruction="Route to billing_agent_mcp, technical_agent, or shipping_agent. Never answer directly.",
-        sub_agents=[billing, tech, shipping])
+        instruction="Route to claims_agent_mcp, technical_agent, or shipping_agent. Never answer directly.",
+        sub_agents=[claims, tech, shipping])
     return root, None
 
 # --- Runner ---
@@ -252,13 +259,13 @@ if page == "Overview":
     col1, col2, col3 = st.columns(3)
     with col1:
         st.subheader("Demo 1: Routing (Capstone)")
-        st.markdown("Router agent delegates to benefits, clinical, and escalation specialists -- my healthcare capstone theme.\n\n**Pattern:** Router / Delegation")
+        st.markdown("Router agent delegates to benefits, clinical, and escalation specialists -- my healthcare capstone theme (stub data).\n\n**Pattern:** Router / Delegation")
     with col2:
-        st.subheader("Demo 2: MCP")
-        st.markdown("Agent connects to a live Supabase database via MCP. Tools are auto-discovered at runtime.\n\n**Pattern:** External tool discovery. *Not part of the capstone -- Supabase isn't needed there, the RAG source is Pinecone.*")
+        st.subheader("Demo 2: MCP (Capstone)")
+        st.markdown("Agent connects to a live Supabase database via MCP -- real patients/claims/support_tickets tables, healthcare-themed, RLS enabled.\n\n**Pattern:** External tool discovery.")
     with col3:
         st.subheader("Demo 3: Full System")
-        st.markdown("Combines routing + MCP + A2A. Shipping agent runs as a separate process.\n\n**Pattern:** Cross-process communication. *Not part of the capstone, same reason as Demo 2.*")
+        st.markdown("Combines routing + MCP (same real claims data as Demo 2) + A2A. Shipping stays generic -- package tracking isn't part of the capstone.\n\n**Pattern:** Cross-process communication.")
 
     st.markdown("---")
     st.subheader("Architecture")
@@ -362,11 +369,11 @@ elif page == "Demo 1: Routing":
 
 elif page == "Demo 2: MCP + Database":
     st.header("Demo 2: MCP -- Real Database Access")
-    st.caption("General ADK reference, not part of the healthcare capstone -- the capstone's RAG source is Pinecone, not Supabase.")
+    st.caption("Healthcare capstone theme: real patients/claims/support_tickets tables in Supabase, RLS enabled.")
     st.markdown("The agent connects to a **live Supabase database** via MCP. Tools are auto-discovered at runtime.")
 
     with st.expander("Architecture"):
-        st.code("Agent -> MCP Protocol -> Supabase MCP Server (npx) -> Supabase DB", language=None)
+        st.code("claims_agent_mcp -> MCP Protocol -> Supabase MCP Server (npx) -> Supabase DB (patients/claims/support_tickets)", language=None)
 
     if not api_key:
         st.error("Set GOOGLE_API_KEY in .env"); st.stop()
@@ -377,12 +384,12 @@ elif page == "Demo 2: MCP + Database":
     col1, col2 = st.columns(2)
     query = None
     with col1:
-        if st.button("Customer Lookup", use_container_width=True):
-            query = "What orders does Bob Smith have? What's the total?"
+        if st.button("Patient Lookup", use_container_width=True):
+            query = "What claims does Bob Smith have? What's the total amount?"
     with col2:
         if st.button("Cross-Table Query", use_container_width=True):
-            query = "Show all high-priority open support tickets with customer name."
-    custom = st.text_input("Or type your own:", key="d2c", placeholder="e.g. How many customers are on the pro plan?")
+            query = "Show all high-priority open support tickets with patient name and email."
+    custom = st.text_input("Or type your own:", key="d2c", placeholder="e.g. What plan is Jane Doe on?")
     if st.button("Send", key="d2s", type="primary") and custom.strip():
         query = custom.strip()
 
@@ -390,7 +397,7 @@ elif page == "Demo 2: MCP + Database":
         st.markdown(f"**Query:** {query}")
         with st.spinner("Connecting to MCP + Supabase (may take 10-15s)..."):
             try:
-                agent, err = create_mcp_billing_agent()
+                agent, err = create_mcp_claims_agent()
                 if err:
                     st.error(err)
                 else:
@@ -411,20 +418,20 @@ elif page == "Demo 2: MCP + Database":
 
 elif page == "Demo 3: Full System":
     st.header("Demo 3: Full System -- Routing + MCP + A2A")
-    st.caption("General ADK reference, not part of the healthcare capstone -- same reason as Demo 2.")
+    st.caption("Healthcare capstone theme for claims (same Supabase data as Demo 2); shipping stays generic -- package tracking isn't part of the capstone.")
     st.markdown("Combines **routing** + **MCP** (Supabase) + **A2A** (remote shipping agent).")
 
     with st.expander("Architecture"):
         st.code("""
-    Router -> billing_agent  (MCP -> Supabase)
-           -> technical_agent (local tools)
-           -> shipping_agent  (A2A -> localhost:8001)
+    Router -> claims_agent_mcp (MCP -> Supabase: patients/claims/support_tickets)
+           -> technical_agent   (local tools)
+           -> shipping_agent    (A2A -> localhost:8001)
         """, language=None)
 
     if not api_key:
         st.error("Set GOOGLE_API_KEY in .env"); st.stop()
     if not supa_token:
-        st.warning("Supabase not configured -- billing won't work.")
+        st.warning("Supabase not configured -- claims lookup won't work.")
     if not shipping_ok:
         st.warning("Shipping agent not running. Start: `uvicorn shipping_agent:app --port 8001`")
 
@@ -432,15 +439,15 @@ elif page == "Demo 3: Full System":
     col1, col2, col3 = st.columns(3)
     query = None
     with col1:
-        if st.button("Billing (MCP)", use_container_width=True):
-            query = "I'm Jane Doe (jane@example.com). What plan am I on?"
+        if st.button("Claims (MCP)", use_container_width=True):
+            query = "I'm Jane Doe (jane@example.com). What plan am I on? Show my recent claims."
     with col2:
         if st.button("Technical (Local)", use_container_width=True):
             query = "My app is slow. Is something wrong with your servers?"
     with col3:
         if st.button("Shipping (A2A)", use_container_width=True):
             query = "Where is my package for order ORD-1004?"
-    custom = st.text_input("Or type your own:", key="d3c", placeholder="e.g. Help with my order and a tech issue")
+    custom = st.text_input("Or type your own:", key="d3c", placeholder="e.g. What claims does Bob Smith have?")
     if st.button("Send", key="d3s", type="primary") and custom.strip():
         query = custom.strip()
 
