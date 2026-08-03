@@ -34,6 +34,23 @@ from google.genai import types
 # is a stable (non-"-latest") pinned model confirmed to have working quota.
 MODEL = "gemini-3.1-flash-lite"
 
+# Secure by default: read-only unless explicitly disabled. This page takes
+# free-text input from whoever loads it -- on a deployed/public instance
+# that's anyone, so the MCP server must not be able to run
+# apply_migration/execute_sql/delete_branch/etc. against the real project.
+SUPABASE_READ_ONLY = os.getenv("SUPABASE_READ_ONLY", "true").strip().lower() != "false"
+
+# Defaults to localhost for local dev; set SHIPPING_AGENT_URL to the deployed
+# shipping_agent's real URL when running this off of localhost (e.g. Render).
+SHIPPING_AGENT_URL = os.getenv("SHIPPING_AGENT_URL", "http://localhost:8001")
+
+# Belt-and-suspenders on top of --read-only: verified --read-only blocks
+# execute_sql/apply_migration writes at the DB/app level, but tools like
+# deploy_edge_function/delete_branch/create_branch weren't individually
+# confirmed to respect it. Restricting the exposed tool set makes that moot
+# -- these agents only ever need to read data and inspect schema.
+SUPABASE_MCP_TOOL_FILTER = ["list_tables", "execute_sql", "get_advisors", "search_docs"]
+
 # --- Tools ---
 # Demo 1's tools/agents below are the healthcare-capstone theme (same as
 # demo1_routing.py) -- stub data, matching the class-demo style. The real,
@@ -117,8 +134,11 @@ def create_mcp_claims_agent():
     mcp_args = ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", token]
     if ref:
         mcp_args += ["--project-ref", ref]
+    if SUPABASE_READ_ONLY:
+        mcp_args += ["--read-only"]
     mcp = McpToolset(connection_params=StdioConnectionParams(
-        server_params=StdioServerParameters(command="npx", args=mcp_args), timeout=30.0))
+        server_params=StdioServerParameters(command="npx", args=mcp_args), timeout=30.0),
+        tool_filter=SUPABASE_MCP_TOOL_FILTER)
     agent = Agent(
         name="claims_agent_mcp", model=MODEL,
         description="Healthcare claims/billing agent with real Supabase database access via MCP.",
@@ -140,15 +160,18 @@ def create_full_system_agent():
     mcp_args = ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", token]
     if ref:
         mcp_args += ["--project-ref", ref]
+    if SUPABASE_READ_ONLY:
+        mcp_args += ["--read-only"]
     mcp = McpToolset(connection_params=StdioConnectionParams(
-        server_params=StdioServerParameters(command="npx", args=mcp_args), timeout=30.0))
+        server_params=StdioServerParameters(command="npx", args=mcp_args), timeout=30.0),
+        tool_filter=SUPABASE_MCP_TOOL_FILTER)
     claims = Agent(name="claims_agent_mcp", model=MODEL,
         description="Healthcare claims with real Supabase DB via MCP.",
         instruction="You are a healthcare claims specialist. Use MCP tools to query patients, claims, support_tickets.", tools=[mcp])
     tech = Agent(name="technical_agent", model=MODEL,
         description="Technical issues: bugs, crashes, performance.", instruction="Use search_knowledge_base and check_system_status.",
         tools=[search_knowledge_base, check_system_status])
-    shipping = RemoteA2aAgent(name="shipping_agent", agent_card="http://localhost:8001",
+    shipping = RemoteA2aAgent(name="shipping_agent", agent_card=SHIPPING_AGENT_URL,
         description="Remote agent for shipping and delivery tracking.")
     root = Agent(name="full_support_system", model=MODEL,
         instruction="Route to claims_agent_mcp, technical_agent, or shipping_agent. Never answer directly.",
@@ -187,7 +210,19 @@ def run_agent_sync(agent, message, timeout=120):
 
 # --- Helpers ---
 
-def check_shipping_agent(url="http://localhost:8001"):
+def log_and_show_error(exc: Exception, context: str) -> None:
+    """Log the real exception server-side; show only a generic message publicly.
+
+    A raw MCP subprocess exception can embed the full launch command line --
+    including "--access-token <TOKEN>" -- in its message. On a public page,
+    st.error(str(exc)) would leak that token to any visitor. Same pattern as
+    main.py's error handling (see CLAUDE.md); never surface raw exception
+    text on a page anyone can load.
+    """
+    print(f"[{context}] {type(exc).__name__}: {exc}")
+    st.error(f"{context} failed -- check server logs for details.")
+
+def check_shipping_agent(url=SHIPPING_AGENT_URL):
     try:
         import urllib.request
         with urllib.request.urlopen(f"{url}/.well-known/agent-card.json", timeout=2) as r:
@@ -355,7 +390,7 @@ elif page == "Demo 1: Routing":
                 response, trace = run_agent_sync(router_agent, query)
                 st.session_state["d1_resp"], st.session_state["d1_trace"], st.session_state["d1_q"] = response, trace, query
             except Exception as e:
-                st.error(str(e))
+                log_and_show_error(e, "Demo 1")
 
     if st.session_state.get("d1_resp"):
         st.markdown("---")
@@ -404,7 +439,7 @@ elif page == "Demo 2: MCP + Database":
                     response, trace = run_agent_sync(agent, query, timeout=180)
                     st.session_state["d2_resp"], st.session_state["d2_trace"], st.session_state["d2_q"] = response, trace, query
             except Exception as e:
-                st.error(str(e))
+                log_and_show_error(e, "Demo 2")
 
     if st.session_state.get("d2_resp"):
         st.markdown("---")
@@ -462,7 +497,7 @@ elif page == "Demo 3: Full System":
                     response, trace = run_agent_sync(agent, query, timeout=180)
                     st.session_state["d3_resp"], st.session_state["d3_trace"], st.session_state["d3_q"] = response, trace, query
             except Exception as e:
-                st.error(str(e))
+                log_and_show_error(e, "Demo 3")
 
     if st.session_state.get("d3_resp"):
         st.markdown("---")

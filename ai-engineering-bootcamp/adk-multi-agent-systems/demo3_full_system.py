@@ -63,19 +63,32 @@ technical_agent = Agent(
 
 TOKEN = os.getenv("SUPABASE_ACCESS_TOKEN", "")
 PROJECT_REF = os.getenv("SUPABASE_PROJECT_REF", "")
+# Secure by default: read-only unless explicitly disabled. This agent takes
+# free-text input from whoever is talking to it -- on a deployed/public
+# instance that could be anyone, so the MCP server must not be able to run
+# apply_migration/execute_sql/delete_branch/etc. against the real project.
+SUPABASE_READ_ONLY = os.getenv("SUPABASE_READ_ONLY", "true").strip().lower() != "false"
 
 if not TOKEN:
-    print("WARNING: SUPABASE_ACCESS_TOKEN not set -- billing agent won't work.")
+    print("WARNING: SUPABASE_ACCESS_TOKEN not set -- claims agent won't work.")
 
 mcp_args = ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", TOKEN]
 if PROJECT_REF:
     mcp_args += ["--project-ref", PROJECT_REF]
+if SUPABASE_READ_ONLY:
+    mcp_args += ["--read-only"]
 
 supabase_mcp = McpToolset(
     connection_params=StdioConnectionParams(
         server_params=StdioServerParameters(command="npx", args=mcp_args),
         timeout=30.0,
     ),
+    # Belt-and-suspenders on top of --read-only: verified --read-only blocks
+    # execute_sql/apply_migration writes at the DB/app level, but tools like
+    # deploy_edge_function/delete_branch/create_branch weren't individually
+    # confirmed to respect it. Restricting the exposed tool set makes that
+    # moot -- this agent only ever needs to read data and inspect schema.
+    tool_filter=["list_tables", "execute_sql", "get_advisors", "search_docs"],
 )
 
 billing_agent = Agent(
@@ -87,9 +100,13 @@ billing_agent = Agent(
 
 # --- Layer 3: Shipping Agent (A2A -> remote service) ---
 
+# Defaults to localhost for local dev; set SHIPPING_AGENT_URL to the deployed
+# shipping_agent's real URL when running this off of localhost (e.g. Render).
+SHIPPING_AGENT_URL = os.getenv("SHIPPING_AGENT_URL", "http://localhost:8001")
+
 shipping_agent = RemoteA2aAgent(
     name="shipping_agent",
-    agent_card="http://localhost:8001",
+    agent_card=SHIPPING_AGENT_URL,
     description="Remote agent for shipping and delivery tracking via A2A protocol.",
 )
 

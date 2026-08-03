@@ -1,0 +1,8 @@
+.env
+.env.example
+.git
+__pycache__
+*.pyc
+.venv
+venv
+week3_notebook.ipynb

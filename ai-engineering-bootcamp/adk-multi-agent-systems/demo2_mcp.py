@@ -32,6 +32,11 @@ from mcp.client.stdio import StdioServerParameters
 MODEL = "gemini-3.1-flash-lite"
 TOKEN = os.getenv("SUPABASE_ACCESS_TOKEN", "")
 PROJECT_REF = os.getenv("SUPABASE_PROJECT_REF", "")
+# Secure by default: read-only unless explicitly disabled. This agent takes
+# free-text input from whoever is talking to it -- on a deployed/public
+# instance that could be anyone, so the MCP server must not be able to run
+# apply_migration/execute_sql/delete_branch/etc. against the real project.
+SUPABASE_READ_ONLY = os.getenv("SUPABASE_READ_ONLY", "true").strip().lower() != "false"
 
 if not TOKEN:
     sys.exit("Set SUPABASE_ACCESS_TOKEN in .env (https://supabase.com/dashboard/account/tokens)")
@@ -41,12 +46,20 @@ if not TOKEN:
 mcp_args = ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", TOKEN]
 if PROJECT_REF:
     mcp_args += ["--project-ref", PROJECT_REF]
+if SUPABASE_READ_ONLY:
+    mcp_args += ["--read-only"]
 
 supabase_mcp = McpToolset(
     connection_params=StdioConnectionParams(
         server_params=StdioServerParameters(command="npx", args=mcp_args),
         timeout=30.0,
     ),
+    # Belt-and-suspenders on top of --read-only: verified --read-only blocks
+    # execute_sql/apply_migration writes at the DB/app level, but tools like
+    # deploy_edge_function/delete_branch/create_branch weren't individually
+    # confirmed to respect it. Restricting the exposed tool set makes that
+    # moot -- this agent only ever needs to read data and inspect schema.
+    tool_filter=["list_tables", "execute_sql", "get_advisors", "search_docs"],
 )
 
 # --- Agent ---

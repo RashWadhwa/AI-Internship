@@ -298,3 +298,36 @@ different, differently-quota'd model later). Applied repo-wide:
 Gemini app plan) does not affect this — API quota comes from whether the
 Cloud project behind `GOOGLE_API_KEY` has billing enabled, a separate,
 unrelated system.
+
+**Deployment (2026-08-03)**: added `Dockerfile` + `.dockerignore` under
+`adk-multi-agent-systems/` (Render's native Python runtime has no Node.js,
+but Demo 2/3's Supabase MCP server launches via `npx` — this service needs
+Docker) and a third `render.yaml` service, `adk-healthcare-capstone`. Since
+this repo is public, hardened Supabase MCP access first:
+- `SUPABASE_READ_ONLY` (env var, defaults to `true` even if unset) appends
+  `--read-only` to the MCP server launch — verified with a real write
+  attempt against the live project that this genuinely blocks
+  `execute_sql`/`apply_migration` at the DB/app level, not just an LLM
+  instruction.
+- On top of that, `McpToolset(tool_filter=[...])` restricts the exposed
+  tools to `list_tables`/`execute_sql`/`get_advisors`/`search_docs` only —
+  belt-and-suspenders, since `deploy_edge_function`/`delete_branch`/
+  `create_branch`/etc. weren't individually confirmed to respect
+  `--read-only`.
+- Fixed three `st.error(str(e))` call sites in `streamlit_app.py` that
+  could have leaked the Supabase token to a public visitor (a subprocess
+  launch failure's exception text can embed the full command line,
+  `--access-token` included) — replaced with `log_and_show_error()`, which
+  logs the real exception server-side and shows only a generic message
+  publicly, same pattern as `main.py`'s existing error handling.
+
+`shipping_agent.py`'s A2A URL is now configurable (`A2A_HOST`/`A2A_PORT`/
+`A2A_PROTOCOL`) instead of hardcoded to `localhost:8001`, but it isn't
+deployed as its own Render service yet — Demo 3's shipping piece will show
+"not running" on the deployed site until/unless that's added separately.
+
+Verified for real, not just written: `docker build` succeeds, and a running
+container (real secrets passed as env vars, exactly as Render would) serves
+HTTP 200 with `$PORT` binding working correctly. `demo2_mcp.py` re-run with
+both `--read-only` and `tool_filter` active still answers correctly with
+real data — the hardening didn't break functionality.

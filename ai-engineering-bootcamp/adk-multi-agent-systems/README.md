@@ -259,6 +259,36 @@ copying patterns straight from `demo1_routing.py`: same `load_dotenv()` +
 Run: `python capstone_agent.py` (same style as the other demos — needs only
 `GOOGLE_API_KEY`).
 
+## Deploying (Render)
+
+`Dockerfile` + `.dockerignore` here let this run on Render as
+`adk-healthcare-capstone` (see repo-root `render.yaml`) — Docker, not
+`env: python`, because Demo 2/3's Supabase MCP server launches via `npx`
+and Render's native Python runtime has no Node.js. Verified locally with a
+real `docker build` + running container (HTTP 200, `$PORT` binding works).
+
+**Since this repo is public**, Supabase MCP access is hardened two ways
+before deploying, not just documented:
+- `SUPABASE_READ_ONLY` defaults to `true` even if the env var is unset —
+  appends `--read-only` to the MCP server launch. Verified against the live
+  project with a real write attempt: `execute_sql`/`apply_migration` are
+  genuinely blocked at the DB/app level, not just discouraged by an LLM
+  instruction.
+- `McpToolset(tool_filter=[...])` additionally restricts the exposed tools
+  to `list_tables`/`execute_sql`/`get_advisors`/`search_docs` — belt-and-
+  suspenders, since tools like `deploy_edge_function`/`delete_branch`/
+  `create_branch` weren't individually confirmed to respect `--read-only`.
+- Three `st.error(str(e))` sites in `streamlit_app.py` could have leaked the
+  Supabase token to a public visitor (a subprocess launch failure can embed
+  the full command line in its exception text) — replaced with
+  `log_and_show_error()`: logs the real exception server-side, shows only a
+  generic message on the page.
+
+Set `SHIPPING_AGENT_URL`/`A2A_HOST`/`A2A_PORT`/`A2A_PROTOCOL` (see
+`.env.example`) if you later deploy `shipping_agent.py` as its own service
+for Demo 3's A2A piece — not included in `render.yaml` yet, so that piece
+will show "not running" on the deployed site until it is.
+
 ## Architecture
 
 ```

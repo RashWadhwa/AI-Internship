@@ -29,3 +29,28 @@ services:
     root: ai-engineering-bootcamp/week-1
     buildCommand: 'python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt'
     startCommand: 'sh start_streamlit.sh'
+
+  # Healthcare capstone (ADK multi-agent demo). Docker, not env: python --
+  # Demo 2/3's Supabase MCP server launches via `npx`, and Render's native
+  # Python runtime has no Node.js. Only Demo 1 (stub data, no MCP) needs
+  # nothing beyond GOOGLE_API_KEY; Demo 2/3 also need the Supabase secrets.
+  # Demo 3's A2A shipping piece will just show "not running" here unless
+  # shipping_agent.py is deployed separately too (not included below) --
+  # add it later with env: python (no Docker needed, no npx dependency) if
+  # you want that piece working live.
+  - type: web
+    name: adk-healthcare-capstone
+    env: docker
+    dockerfilePath: ./ai-engineering-bootcamp/adk-multi-agent-systems/Dockerfile
+    dockerContext: ./ai-engineering-bootcamp/adk-multi-agent-systems
+    plan: free
+    branch: main
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: SUPABASE_ACCESS_TOKEN
+        sync: false
+      - key: SUPABASE_PROJECT_REF
+        sync: false
+      - key: SUPABASE_READ_ONLY
+        value: 'true'

@@ -50,6 +50,16 @@ shipping_agent = Agent(
 
 # --- A2A ---
 
-app = to_a2a(shipping_agent, port=8001)
+# The agent card (advertised at /.well-known/agent-card.json) needs to
+# advertise the URL this service is actually reachable at. Defaults match
+# local dev (uvicorn shipping_agent:app --port 8001); override via env vars
+# when deployed, e.g. A2A_HOST=my-shipping-agent.onrender.com, A2A_PORT=443,
+# A2A_PROTOCOL=https.
+app = to_a2a(
+    shipping_agent,
+    host=os.getenv("A2A_HOST", "localhost"),
+    port=int(os.getenv("A2A_PORT", "8001")),
+    protocol=os.getenv("A2A_PROTOCOL", "http"),
+)
 
 # Run with: uvicorn shipping_agent:app --port 8001
