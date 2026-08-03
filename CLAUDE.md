@@ -134,13 +134,14 @@ before assuming which one a request hit. Non-secret env vars
 must be pasted into the Render dashboard manually — pushing a blueprint
 change that touches `envVars` for the first time can require re-entering
 them even if they were set before.
->
-> **Known issue (as of 2026-08-02): `render.yaml`'s `root:` for both
-> services still points at `ai-engineering-bootcamp-v2/week-1v2`, which no
-> longer exists after the repo restructure — it should be
-> `ai-engineering-bootcamp/week-1`. Until this is fixed, a fresh deploy from
-> `render.yaml` will fail to find the app. Fix deliberately (it's a
-> deploy-affecting change) rather than as a side effect of a docs edit.**
+
+**Fixed (2026-08-03)**: `render.yaml`'s `root:` for both services was still
+`ai-engineering-bootcamp-v2/week-1v2` (deleted in the original restructure) —
+updated to `ai-engineering-bootcamp/week-1` for both. If these services are
+connected to Render as a synced Blueprint, this was a real fix (the next
+deploy would have failed to find the app); if they were configured manually
+in the dashboard instead, `render.yaml` wasn't authoritative anyway and this
+just brings the file back in sync with reality.
 
 **`data/northwind/`** (under `week-1/`) holds two real PDFs (Northwind
 Health Plus/Standard benefits docs) pulled from Microsoft's

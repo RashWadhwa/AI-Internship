@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     branch: main
-    root: ai-engineering-bootcamp-v2/week-1v2
+    root: ai-engineering-bootcamp/week-1
     buildCommand: 'python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt'
     startCommand: 'uvicorn main:app --host 0.0.0.0 --port $PORT'
     envVars:
@@ -26,6 +26,6 @@ services:
     env: python
     plan: free
     branch: main
-    root: ai-engineering-bootcamp-v2/week-1v2
+    root: ai-engineering-bootcamp/week-1
     buildCommand: 'python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt'
     startCommand: 'sh start_streamlit.sh'
