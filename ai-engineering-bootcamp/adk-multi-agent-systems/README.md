@@ -95,6 +95,18 @@ uvicorn shipping_agent:app --port 8001
 python demo3_full_system.py
 ```
 
+To confirm the shipping agent actually started, don't just visit
+`http://localhost:8001` in a browser — its root `/` is a POST-only
+JSON-RPC endpoint, so a plain browser visit (a GET request) will 405
+"Method Not Allowed" even though the server is running fine. Check it with:
+
+```bash
+curl http://localhost:8001/.well-known/agent-card.json
+```
+
+That should return 200 with the agent's card (JSON metadata). A 405 on `/`
+is expected and not a sign anything is broken.
+
 ### Streamlit App (interactive UI for all demos)
 
 ```bash
@@ -112,6 +124,10 @@ Needs only `GOOGLE_API_KEY` in `.env` to run Demo 1; `LANGFUSE_PUBLIC_KEY`/
 `LANGFUSE_SECRET_KEY`/`LANGFUSE_HOST` are optional (enables the "Langfuse
 Tracing" sidebar status — get keys from your Langfuse project's Settings →
 API Keys page).
+
+The Streamlit sidebar checks the shipping agent the right way already
+(hits `/.well-known/agent-card.json`, not `/`), so its status indicator is
+reliable — no need to manually visit `http://localhost:8001` yourself.
 
 ## Status / capstone notes
 

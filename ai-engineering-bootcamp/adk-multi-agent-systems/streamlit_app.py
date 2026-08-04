@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 load_dotenv()
 
-from langfuse import get_client
+from langfuse import get_client, observe, propagate_attributes
 from openinference.instrumentation.google_adk import GoogleADKInstrumentor
 
 langfuse = get_client()
@@ -180,29 +180,62 @@ def create_full_system_agent():
 
 # --- Runner ---
 
-def run_agent_sync(agent, message, timeout=120):
-    """Run an ADK agent synchronously with trace capture."""
+# Verb-first, low-cardinality trace names per Langfuse best practices --
+# matches the same job's name in the standalone script it mirrors, so the
+# Streamlit and CLI versions of "the same job" show up under one name.
+_TRACE_NAME_BY_DEMO = {
+    "demo1-routing": "route-healthcare-query",
+    "demo2-mcp": "query-patient-claims",
+    "demo3-full-system": "route-support-request",
+}
+
+def run_agent_sync(agent, message, timeout=120, demo_label="demo", user_id="user1"):
+    """Run an ADK agent synchronously with trace capture.
+
+    demo_label tags the Langfuse trace and looks up its name (e.g.
+    "demo1-routing") -- this runner is shared across all three demo pages,
+    so the caller identifies which one. @observe is applied to _run(), not
+    to run_agent_sync() itself: _run() executes inside a fresh worker
+    thread's own event loop (via ThreadPoolExecutor + asyncio.run below),
+    and OpenTelemetry context doesn't cross thread boundaries -- decorating
+    the outer sync function here would create a span in the Streamlit main
+    thread that never actually wraps the agent execution.
+    """
+    trace_name = _TRACE_NAME_BY_DEMO.get(demo_label, demo_label)
+
+    @observe(name=trace_name, capture_input=False, capture_output=False)
     async def _run():
         service = InMemorySessionService()
         runner = Runner(agent=agent, app_name="demo", session_service=service)
-        session = await service.create_session(app_name="demo", user_id="user1")
+        session = await service.create_session(app_name="demo", user_id=user_id)
+        # capture_input=False above + explicit set here: the decorator would
+        # otherwise capture zero args (message is a closure var, not a param),
+        # so set it explicitly to make the trace input meaningful.
+        langfuse.update_current_span(input=message)
         content = types.Content(role="user", parts=[types.Part(text=message)])
         trace, final = [], "(no response)"
-        async for event in runner.run_async(user_id="user1", session_id=session.id, new_message=content):
-            author = getattr(event, "author", "unknown")
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    fc = getattr(part, "function_call", None)
-                    fr = getattr(part, "function_response", None)
-                    text = getattr(part, "text", None)
-                    if fc:
-                        trace.append({"author": author, "type": "tool_call", "tool": fc.name, "args": dict(fc.args) if fc.args else {}})
-                    elif fr:
-                        trace.append({"author": author, "type": "tool_response", "tool": fr.name, "result": str(fr.response)[:800] if fr.response else ""})
-                    elif text:
-                        trace.append({"author": author, "type": "text", "text": text})
-                        if event.is_final_response():
-                            final = text
+        with propagate_attributes(
+            user_id=user_id,
+            session_id=session.id,
+            tags=[demo_label, "healthcare-capstone"],
+            environment=os.getenv("LANGFUSE_ENVIRONMENT", "development"),
+        ):
+            async for event in runner.run_async(user_id=user_id, session_id=session.id, new_message=content):
+                author = getattr(event, "author", "unknown")
+                if event.content and event.content.parts:
+                    for part in event.content.parts:
+                        fc = getattr(part, "function_call", None)
+                        fr = getattr(part, "function_response", None)
+                        text = getattr(part, "text", None)
+                        if fc:
+                            trace.append({"author": author, "type": "tool_call", "tool": fc.name, "args": dict(fc.args) if fc.args else {}})
+                        elif fr:
+                            trace.append({"author": author, "type": "tool_response", "tool": fr.name, "result": str(fr.response)[:800] if fr.response else ""})
+                        elif text:
+                            trace.append({"author": author, "type": "text", "text": text})
+                            if event.is_final_response():
+                                final = text
+        langfuse.update_current_span(output=final)
         langfuse.flush()
         return final, trace
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
@@ -387,7 +420,7 @@ elif page == "Demo 1: Routing":
         st.markdown(f"**Query:** {query}")
         with st.spinner("Running..."):
             try:
-                response, trace = run_agent_sync(router_agent, query)
+                response, trace = run_agent_sync(router_agent, query, demo_label="demo1-routing")
                 st.session_state["d1_resp"], st.session_state["d1_trace"], st.session_state["d1_q"] = response, trace, query
             except Exception as e:
                 log_and_show_error(e, "Demo 1")
@@ -436,7 +469,7 @@ elif page == "Demo 2: MCP + Database":
                 if err:
                     st.error(err)
                 else:
-                    response, trace = run_agent_sync(agent, query, timeout=180)
+                    response, trace = run_agent_sync(agent, query, timeout=180, demo_label="demo2-mcp")
                     st.session_state["d2_resp"], st.session_state["d2_trace"], st.session_state["d2_q"] = response, trace, query
             except Exception as e:
                 log_and_show_error(e, "Demo 2")
@@ -494,7 +527,7 @@ elif page == "Demo 3: Full System":
                 if err:
                     st.error(err)
                 else:
-                    response, trace = run_agent_sync(agent, query, timeout=180)
+                    response, trace = run_agent_sync(agent, query, timeout=180, demo_label="demo3-full-system")
                     st.session_state["d3_resp"], st.session_state["d3_trace"], st.session_state["d3_q"] = response, trace, query
             except Exception as e:
                 log_and_show_error(e, "Demo 3")

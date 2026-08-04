@@ -6,12 +6,19 @@ Run: python demo1_routing.py
 import asyncio
 import os
 from dotenv import load_dotenv
+
+load_dotenv()  # must run before importing langfuse, so credentials are present
+
+from langfuse import get_client, observe, propagate_attributes
+from openinference.instrumentation.google_adk import GoogleADKInstrumentor
+
+langfuse = get_client()
+GoogleADKInstrumentor().instrument()
+
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
-
-load_dotenv()
 
 # "gemini-2.5-flash" 404s ("no longer available to new users") for a fresh
 # GOOGLE_API_KEY. "gemini-2.0-flash"/"gemini-2.5-flash-lite" both hit hard
@@ -93,19 +100,30 @@ root_agent = Agent(
 
 # --- Runner ---
 
-async def ask(agent, message):
+@observe(name="route-healthcare-query", capture_input=False, capture_output=False)
+async def ask(agent, message, user_id="user1"):
     service = InMemorySessionService()
     runner = Runner(agent=agent, app_name="demo", session_service=service)
-    session = await service.create_session(app_name="demo", user_id="user1")
+    session = await service.create_session(app_name="demo", user_id=user_id)
+    # capture_input=False above + explicit set here: the decorator would
+    # otherwise capture *args (including the Agent object) as trace input.
+    langfuse.update_current_span(input=message)
     content = types.Content(role="user", parts=[types.Part(text=message)])
-    # Let the generator run to completion instead of `return`-ing the moment we
-    # see a final response -- breaking out of an `async for` early forces ADK's
-    # tracing span to close from a different context, which raises a harmless
-    # but noisy OpenTelemetry error.
-    final_answer = "(no response)"
-    async for event in runner.run_async(user_id="user1", session_id=session.id, new_message=content):
-        if event.is_final_response() and event.content and event.content.parts:
-            final_answer = event.content.parts[0].text
+    with propagate_attributes(
+        user_id=user_id,
+        session_id=session.id,
+        tags=["demo1-routing", "healthcare-capstone"],
+        environment=os.getenv("LANGFUSE_ENVIRONMENT", "development"),
+    ):
+        # Let the generator run to completion instead of `return`-ing the moment
+        # we see a final response -- breaking out of an `async for` early forces
+        # ADK's OpenTelemetry span to close from a different context, which
+        # raises a harmless but noisy OpenTelemetry error.
+        final_answer = "(no response)"
+        async for event in runner.run_async(user_id=user_id, session_id=session.id, new_message=content):
+            if event.is_final_response() and event.content and event.content.parts:
+                final_answer = event.content.parts[0].text
+    langfuse.update_current_span(output=final_answer)
     return final_answer
 
 async def main():
@@ -123,6 +141,7 @@ async def main():
             # A failed query (e.g. Gemini free-tier rate limit) shouldn't kill
             # the rest of the test run -- report it and move to the next one.
             print(f"Agent: [FAILED] {type(exc).__name__}: {exc}\n")
+    langfuse.flush()  # short-lived script -- traces are lost if not flushed before exit
 
 if __name__ == "__main__":
     asyncio.run(main())

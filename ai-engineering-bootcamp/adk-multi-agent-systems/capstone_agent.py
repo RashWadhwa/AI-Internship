@@ -13,13 +13,21 @@ Run: python capstone_agent.py
 """
 
 import asyncio
+import os
 from dotenv import load_dotenv
+
+load_dotenv()  # must run before importing langfuse, so credentials are present
+
+from langfuse import get_client, observe, propagate_attributes
+from openinference.instrumentation.google_adk import GoogleADKInstrumentor
+
+langfuse = get_client()
+GoogleADKInstrumentor().instrument()
+
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
-
-load_dotenv()
 
 # "gemini-2.5-flash" 404s ("no longer available to new users") for a fresh
 # GOOGLE_API_KEY. "gemini-2.0-flash"/"gemini-2.5-flash-lite" both hit hard
@@ -102,37 +110,48 @@ def log_event(step: int, event) -> None:
             print(f"[{step}] {label:<7} {part.text}")
 
 
-async def ask(agent, message, max_steps: int = MAX_STEPS) -> str:
+@observe(name="answer-benefits-question", capture_input=False, capture_output=False)
+async def ask(agent, message, max_steps: int = MAX_STEPS, user_id: str = "member1") -> str:
     service = InMemorySessionService()
     runner = Runner(agent=agent, app_name="capstone_demo", session_service=service)
-    session = await service.create_session(app_name="capstone_demo", user_id="member1")
+    session = await service.create_session(app_name="capstone_demo", user_id=user_id)
+    # capture_input=False above + explicit set here: the decorator would
+    # otherwise capture *args (including the Agent object) as trace input.
+    langfuse.update_current_span(input=message)
     content = types.Content(role="user", parts=[types.Part(text=message)])
 
     step = 0
     final_answer = None
-    # Let the generator run to completion instead of `return`-ing the moment we
-    # see a final response -- breaking out of an `async for` early forces ADK's
-    # tracing span to close from a different context, which raises a harmless
-    # but noisy OpenTelemetry error. Only the (rare) step-limit path breaks
-    # early, since that's a genuine abort, not a clean finish.
-    async for event in runner.run_async(
-        user_id="member1", session_id=session.id, new_message=content
+    with propagate_attributes(
+        user_id=user_id,
+        session_id=session.id,
+        tags=["capstone-agent", "healthcare-capstone"],
+        environment=os.getenv("LANGFUSE_ENVIRONMENT", "development"),
     ):
-        step += 1
-        log_event(step, event)
+        # Let the generator run to completion instead of `return`-ing the moment
+        # we see a final response -- breaking out of an `async for` early forces
+        # ADK's OpenTelemetry span to close from a different context, which
+        # raises a harmless but noisy OpenTelemetry error. Only the (rare)
+        # step-limit path breaks early, since that's a genuine abort, not a
+        # clean finish.
+        async for event in runner.run_async(
+            user_id=user_id, session_id=session.id, new_message=content
+        ):
+            step += 1
+            log_event(step, event)
 
-        if final_answer is None and event.is_final_response() and event.content and event.content.parts:
-            final_answer = event.content.parts[0].text
+            if final_answer is None and event.is_final_response() and event.content and event.content.parts:
+                final_answer = event.content.parts[0].text
 
-        if step >= max_steps:
-            print(f"[STEP LIMIT] Stopping after {max_steps} steps to avoid an infinite loop.")
-            break
+            if step >= max_steps:
+                print(f"[STEP LIMIT] Stopping after {max_steps} steps to avoid an infinite loop.")
+                break
 
-    if final_answer is not None:
-        return final_answer
-    return "(no final answer within step limit)" if step >= max_steps else "(no response)"
-
-    return "(no response)"
+    result = final_answer if final_answer is not None else (
+        "(no final answer within step limit)" if step >= max_steps else "(no response)"
+    )
+    langfuse.update_current_span(output=result)
+    return result
 
 
 async def main():
@@ -144,6 +163,7 @@ async def main():
         print(f"\n--- User: {query} ---")
         answer = await ask(root_agent, query)
         print(f"\nAgent: {answer}\n")
+    langfuse.flush()  # short-lived script -- traces are lost if not flushed before exit
 
 
 if __name__ == "__main__":
