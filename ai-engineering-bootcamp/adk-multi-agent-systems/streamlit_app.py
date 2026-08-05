@@ -312,7 +312,7 @@ with st.sidebar:
     if shipping_ok:
         st.success("Shipping Agent (:8001)")
     else:
-        st.warning("Shipping Agent -- not running")
+        st.info("Shipping Agent off -- optional (Demo 3 A2A)")
     if langfuse.auth_check():
         st.success("Langfuse Tracing")
     else:
