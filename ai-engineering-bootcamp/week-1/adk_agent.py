@@ -4,7 +4,7 @@ ADK Capstone Agent: Benefits Coverage Assistant (real RAG, wired to Pinecone)
 Sibling entry point to main.py -- does NOT touch main.py's existing /ask
 endpoint (OpenAI-based, already deployed). Pattern copied from
 ../adk-multi-agent-systems/capstone_agent.py (itself copied from
-demo1_routing.py): same Agent(...) fields, same ask()/main() Runner harness,
+healthcare_router.py): same Agent(...) fields, same ask()/main() Runner harness,
 same THINK/ACT/OBSERVE event logging, same MAX_STEPS cap. The only real
 change from capstone_agent.py: search_benefits_documents is no longer a
 stub -- it calls vectorstore.query_similar() and hits the same Northwind
@@ -12,7 +12,7 @@ Pinecone index main.py's /ask endpoint already queries.
 
 Single agent, no router: this is still one job (answer a benefits coverage
 question from retrieved plan text), so there's no sub_agents split here --
-see ../adk-multi-agent-systems/demo1_routing.py if a second job (e.g.
+see ../adk-multi-agent-systems/healthcare_router.py if a second job (e.g.
 appointment scheduling) later needs one.
 
 Run: python adk_agent.py

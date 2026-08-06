@@ -53,7 +53,7 @@ SUPABASE_MCP_TOOL_FILTER = ["list_tables", "execute_sql", "get_advisors", "searc
 
 # --- Tools ---
 # Demo 1's tools/agents below are the healthcare-capstone theme (same as
-# demo1_routing.py) -- stub data, matching the class-demo style. The real,
+# healthcare_router.py) -- stub data, matching the class-demo style. The real,
 # Pinecone-backed version of this job lives in ../week-1/adk_agent.py.
 
 def lookup_coverage(plan_name: str) -> dict:

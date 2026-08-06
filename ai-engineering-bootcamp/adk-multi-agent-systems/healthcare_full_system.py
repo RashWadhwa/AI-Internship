@@ -1,8 +1,8 @@
 """
-Demo 3: Full System -- Multi-Agent + MCP + A2A
+Healthcare Full System: Multi-Agent + MCP + A2A (Demo 3)
 
 Start shipping agent first:  uvicorn shipping_agent:app --port 8001
-Then run:                     python demo3_full_system.py
+Then run:                     python healthcare_full_system.py
 """
 
 import asyncio

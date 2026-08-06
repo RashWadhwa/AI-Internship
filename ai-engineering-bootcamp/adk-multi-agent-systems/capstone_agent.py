@@ -1,7 +1,7 @@
 """
 Capstone Agent: Benefits Coverage Assistant (single agent, multi-step)
 
-Patterns copied from demo1_routing.py: load_dotenv() + MODEL constant, the
+Patterns copied from healthcare_router.py (formerly demo1_routing.py): load_dotenv() + MODEL constant, the
 tool-function shape (typed args, docstring, dict return), the Agent(...)
 constructor fields (name/model/description/instruction/tools), and the
 ask()/main() Runner + InMemorySessionService harness. Unlike demo1, this is

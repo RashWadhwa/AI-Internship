@@ -1,6 +1,6 @@
 """
-Demo 1: Multi-Agent Routing with ADK (Healthcare capstone variant)
-Run: python demo1_routing.py
+Healthcare Router: Multi-Agent Routing with ADK (Demo 1 -- healthcare capstone theme)
+Run: python healthcare_router.py
 """
 
 import asyncio

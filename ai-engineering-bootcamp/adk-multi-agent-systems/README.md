@@ -46,7 +46,7 @@ pip install -e .
 A `requirements.txt` is also provided (`pip install -r requirements.txt`) for
 environments that prefer it over `pip install -e .`. It includes `mcp`,
 `langfuse`, and `openinference-instrumentation-google-adk` — used by
-`demo2_mcp.py`/`demo3_full_system.py`/`streamlit_app.py` but not yet declared
+`claims_mcp_agent.py`/`healthcare_full_system.py`/`streamlit_app.py` but not yet declared
 in `pyproject.toml`; keep both files in sync if dependencies change. It also
 pins `opentelemetry-api`/`opentelemetry-sdk` to `1.42.1` — installing
 `langfuse`/`openinference-instrumentation-google-adk` normally pulls in
@@ -72,7 +72,7 @@ SUPABASE_PROJECT_REF=your_project_ref_here
 ### Demo 1 — Multi-Agent Routing (local tools only)
 
 ```bash
-python demo1_routing.py
+python healthcare_router.py
 ```
 
 ### Demo 2 — MCP + Supabase
@@ -80,7 +80,7 @@ python demo1_routing.py
 Requires `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` in `.env`.
 
 ```bash
-python demo2_mcp.py
+python claims_mcp_agent.py
 ```
 
 ### Demo 3 — Full System (Routing + MCP + A2A)
@@ -92,7 +92,7 @@ Start the shipping agent in one terminal, then run the demo in another:
 uvicorn shipping_agent:app --port 8001
 
 # Terminal 2 — run the demo
-python demo3_full_system.py
+python healthcare_full_system.py
 ```
 
 To confirm the shipping agent actually started, don't just visit
@@ -131,7 +131,7 @@ reliable — no need to manually visit `http://localhost:8001` yourself.
 
 ## Status / capstone notes
 
-My capstone theme is Healthcare. `demo1_routing.py` has been adapted from the
+My capstone theme is Healthcare. `healthcare_router.py` has been adapted from the
 generic customer-support starter to a `healthcare_router` root agent routing
 to:
 - `benefits_agent` — plan coverage / deductible / prior-authorization lookups
@@ -141,7 +141,7 @@ to:
 It uses stub in-memory data, same as the original demo. `streamlit_app.py`'s
 Demo 1 page uses the identical tools/agents.
 
-`demo2_mcp.py` (and the MCP portion of `demo3_full_system.py`) query a
+`claims_mcp_agent.py` (and the MCP portion of `healthcare_full_system.py`) query a
 **real** Supabase project via MCP — `claims_agent_mcp`, backed by real
 `patients`/`claims`/`support_tickets` tables (healthcare-themed: the same
 Bob Smith/Jane Doe/Alice Johnson-style seed data as Demo 1, but real rows in
@@ -168,13 +168,13 @@ no policies) on all three tables — Supabase's own advisor flagged them as
 exposed to `anon`/`authenticated` API roles right after creation, so this
 was fixed immediately. The MCP server itself uses elevated management-API
 access, not the `anon`/`authenticated` roles, so RLS doesn't affect these
-demos at all — confirmed by re-running `demo2_mcp.py` after enabling it.
+demos at all — confirmed by re-running `claims_mcp_agent.py` after enabling it.
 
 `shipping_agent.py`/the A2A piece stays generic (package tracking isn't
 part of the healthcare capstone).
 
-**Verified working (2026-08-02)**: ran `demo1_routing.py`, `demo2_mcp.py`,
-`demo3_full_system.py` (with `shipping_agent.py` running), and
+**Verified working (2026-08-02)**: ran `healthcare_router.py`, `claims_mcp_agent.py`,
+`healthcare_full_system.py` (with `shipping_agent.py` running), and
 `../week-1/adk_agent.py` end-to-end against real Gemini/Pinecone/Supabase —
 every route answered correctly with real data, including the A2A shipping
 handoff in Demo 3. Also launched `streamlit_app.py` and confirmed it serves
@@ -183,7 +183,7 @@ handoff in Demo 3. Also launched `streamlit_app.py` and confirmed it serves
 **Bugs fixed to get MCP working at all**:
 - `google.adk.tools.mcp_tool` doesn't re-export `McpToolset`/
   `StdioConnectionParams` at the top level in installed `google-adk` 2.6.1 —
-  both `demo2_mcp.py` and `demo3_full_system.py` now import from the actual
+  both `claims_mcp_agent.py` and `healthcare_full_system.py` now import from the actual
   submodules (`google.adk.tools.mcp_tool.mcp_toolset` /
   `...mcp_tool.mcp_session_manager`).
 - The installed `mcp` package was 2.0.0, but `google-adk` 2.6.1 requires
@@ -193,7 +193,7 @@ handoff in Demo 3. Also launched `streamlit_app.py` and confirmed it serves
   too-loose `mcp>=1.0.0` so this doesn't regress on a fresh install.
 - `streamlit_app.py`'s Demo 2/3 pages have their own duplicated
   `create_mcp_claims_agent()`/`create_full_system_agent()` factories, not
-  shared code with `demo2_mcp.py`/`demo3_full_system.py` — same broken
+  shared code with `claims_mcp_agent.py`/`healthcare_full_system.py` — same broken
   import, same stale generic schema. Fixed and rethemed the same way, UI
   copy updated to match. App re-verified to still serve (HTTP 200) after the
   edit; the button click paths themselves weren't separately exercised (no
@@ -225,21 +225,21 @@ If you hit a quota wall while testing, either wait for the daily reset,
 enable billing on that Cloud project, or ask to try a different model name.
 
 Two other bugs fixed to get a clean run:
-- `demo1_routing.py`'s and `demo3_full_system.py`'s (and `capstone_agent.py`'s)
+- `healthcare_router.py`'s and `healthcare_full_system.py`'s (and `capstone_agent.py`'s)
   `ask()` helper used to `return` from inside the
   `async for event in runner.run_async(...)` loop the moment it saw a final
   response — that early exit forces ADK's OpenTelemetry span to close from a
   different async context, raising a harmless-but-noisy
   `GeneratorExit`/`ValueError` traceback on every run. All now drain the
   event stream to completion instead of returning early. Note:
-  `demo3_full_system.py` (and `streamlit_app.py`) also use
+  `healthcare_full_system.py` (and `streamlit_app.py`) also use
   `GoogleADKInstrumentor()` (Langfuse/OpenInference), which introduces a
   *second*, separate source of the same class of noise from OpenInference's
   own event wrapper — confirmed harmless (all 3 Demo 3 scenarios still
   answered correctly with real data) but not fully silenced by this fix;
-  not chased further since it doesn't affect output. `demo2_mcp.py` doesn't
+  not chased further since it doesn't affect output. `claims_mcp_agent.py` doesn't
   use this instrumentor, so it runs fully clean.
-- `demo1_routing.py`'s and `demo3_full_system.py`'s `main()` now wrap each
+- `healthcare_router.py`'s and `healthcare_full_system.py`'s `main()` now wrap each
   test query in try/except so one failed call (rate limit or otherwise)
   doesn't crash the whole test run — prints `[FAILED] ...` and moves to the
   next query instead.
@@ -254,9 +254,9 @@ section to run it.
 ### `capstone_agent.py` — single-agent capstone starting point
 
 A minimal, single-agent (no router) version of the capstone job, built by
-copying patterns straight from `demo1_routing.py`: same `load_dotenv()` +
+copying patterns straight from `healthcare_router.py`: same `load_dotenv()` +
 `MODEL` setup, same tool-function shape, same `Agent(...)` fields, same
-`ask()`/`main()` Runner harness. What's different from `demo1_routing.py`:
+`ask()`/`main()` Runner harness. What's different from `healthcare_router.py`:
 
 - **One job, not three** — `benefits_coverage_agent` only answers benefits
   coverage questions (deductible, prior-auth) by searching plan documents; no

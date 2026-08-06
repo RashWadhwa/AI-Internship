@@ -1,6 +1,6 @@
 """
-Demo 2: MCP -- Agent with Real Database Access (Supabase)
-Run: python demo2_mcp.py
+Claims MCP Agent: Real Database Access via MCP (Demo 2 -- Supabase)
+Run: python claims_mcp_agent.py
 
 Healthcare capstone theme: the Supabase project backing this has
 patients/claims/support_tickets tables (created + seeded via the MCP

@@ -80,7 +80,7 @@ Status (verified 2026-08-02 with real Gemini/Pinecone calls, not just written):
   `"gemini-flash-latest"` worked but only a 20/day cap) — every ADK file now
   uses `"gemini-3.1-flash-lite"`, a stable pinned model confirmed to have
   working quota. Also fixed a harmless-but-noisy tracing error in
-  `demo1_routing.py`/`capstone_agent.py`/`adk_agent.py` caused by returning
+  `healthcare_router.py`/`capstone_agent.py`/`adk_agent.py` caused by returning
   from inside the event stream loop too early.
 
 

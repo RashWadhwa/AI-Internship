@@ -141,7 +141,7 @@ uvicorn stages.stage_3_guardrails_and_observability:app --host 127.0.0.1 --port 
 
 A sibling entry point to `main.py` — not part of the deployed `/ask` flow.
 It's a single-agent Google ADK agent (`benefits_coverage_agent`, pattern
-copied from `../adk-multi-agent-systems/demo1_routing.py`/`capstone_agent.py`)
+copied from `../adk-multi-agent-systems/healthcare_router.py`/`capstone_agent.py`)
 that answers benefits-coverage questions by calling `vectorstore.query_similar`
 directly, so it searches the same Pinecone index `/ask` does — just through
 Gemini instead of OpenAI, and with visible THINK/ACT/OBSERVE step logging
