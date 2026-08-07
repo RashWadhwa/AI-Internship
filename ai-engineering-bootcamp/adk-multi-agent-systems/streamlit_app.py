@@ -168,14 +168,15 @@ def create_full_system_agent():
     claims = Agent(name="claims_agent_mcp", model=MODEL,
         description="Healthcare claims with real Supabase DB via MCP.",
         instruction="You are a healthcare claims specialist. Use MCP tools to query patients, claims, support_tickets.", tools=[mcp])
-    tech = Agent(name="technical_agent", model=MODEL,
-        description="Technical issues: bugs, crashes, performance.", instruction="Use search_knowledge_base and check_system_status.",
-        tools=[search_knowledge_base, check_system_status])
+    clinical = Agent(name="clinical_agent", model=MODEL,
+        description="Non-urgent clinical questions: symptoms, self-care, clinic status.",
+        instruction="You are a clinical information specialist. Use search_symptom_guidance and check_clinic_status. Never diagnose -- offer general guidance only.",
+        tools=[search_symptom_guidance, check_clinic_status])
     shipping = RemoteA2aAgent(name="shipping_agent", agent_card=SHIPPING_AGENT_URL,
         description="Remote agent for shipping and delivery tracking.")
     root = Agent(name="full_support_system", model=MODEL,
-        instruction="Route to claims_agent_mcp, technical_agent, or shipping_agent. Never answer directly.",
-        sub_agents=[claims, tech, shipping])
+        instruction="Route to claims_agent_mcp, clinical_agent, or shipping_agent. Never answer directly.",
+        sub_agents=[claims, clinical, shipping])
     return root, None
 
 # --- Runner ---
@@ -492,7 +493,7 @@ elif page == "Demo 3: Full System":
     with st.expander("Architecture"):
         st.code("""
     Router -> claims_agent_mcp (MCP -> Supabase: patients/claims/support_tickets)
-           -> technical_agent   (local tools)
+           -> clinical_agent    (local tools)
            -> shipping_agent    (A2A -> localhost:8001)
         """, language=None)
 
@@ -510,8 +511,8 @@ elif page == "Demo 3: Full System":
         if st.button("Claims (MCP)", use_container_width=True):
             query = "I'm Jane Doe (jane@example.com). What plan am I on? Show my recent claims."
     with col2:
-        if st.button("Technical (Local)", use_container_width=True):
-            query = "My app is slow. Is something wrong with your servers?"
+        if st.button("Clinical (Local)", use_container_width=True):
+            query = "I've had a headache since this morning, what should I do? Also is the downtown clinic open?"
     with col3:
         if st.button("Shipping (A2A)", use_container_width=True):
             query = "Where is my package for order ORD-1004?"
